@@ -1,0 +1,25 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#fff"/><title>Work Tracker</title><link rel="icon" href="/favicon.svg"/><link rel="stylesheet" href="/styles.css"/></head><body>
+<div id="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">W<span class="brand-dot">.</span></span><div><strong>Work Tracker</strong><small>TEAM WORKSPACE</small></div></div>
+    <div class="workspace-hint">WORKSPACE</div>
+    <nav id="nav">
+      <button data-view="dashboard" class="nav-item active"><span class="nav-icon">▦</span> Dashboard</button>
+      <button data-view="daily" class="nav-item"><span class="nav-icon">◷</span> Daily Work</button>
+      <button data-view="board" class="nav-item"><span class="nav-icon">▤</span> Engineering Board</button>
+      <button data-view="releases" class="nav-item"><span class="nav-icon">▤</span> Version Control</button>
+      <button data-view="history" class="nav-item" id="history-nav" hidden><span class="nav-icon">↻</span> Activity History</button>
+      <button data-view="team" class="nav-item" id="team-nav" hidden><span class="nav-icon">♙</span> Team Access</button>
+    </nav>
+    <div class="sidebar-bottom"><div class="sidebar-label">WORKFLOW</div><div class="hint-text">Engineering updates, QA testing and daily work — in one place.</div><div class="separation"></div><button id="login-entry" class="btn">Sign in</button><div class="profile" id="account-profile" hidden><div id="avatar" class="avatar"></div><div class="profile-text"><strong id="current-user">—</strong><small id="current-role"></small><button id="logout" class="account-link">Sign out</button></div></div></div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><div class="crumb">WORKSPACE <span>/</span> <b id="crumb">Dashboard</b></div><div class="top-actions"><span class="saved-state"><span class="saved-dot"></span> Records saved in database</span><select id="demo-user" aria-label="Preview account" hidden><option value="boss@demo.local">Boss (preview)</option><option value="zoey@demo.local">Zoey (Admin preview)</option><option value="sean@demo.local">Sean (Engineer preview)</option></select><button class="icon-btn" id="refresh" aria-label="Refresh">↻</button></div></header>
+    <div class="content" id="content"><div class="loading">Loading workspace…</div></div>
+  </main>
+</div>
+<div id="panel-shade" class="panel-shade hidden" aria-hidden="true"></div>
+<section class="detail-panel hidden" id="detail-panel" aria-label="Task details"><div id="detail-content"></div></section>
+<div class="modal-shade hidden" id="modal-shade"><section class="modal" id="modal-content" role="dialog" aria-modal="true"></section></div>
+<div id="toast" class="toast hidden" role="status"></div>
+<script src="/app.js" type="module"></script></body></html>
