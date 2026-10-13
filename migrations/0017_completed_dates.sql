@@ -1,0 +1,2 @@
+ALTER TABLE private_work ADD COLUMN completed_date TEXT NOT NULL DEFAULT '';
+ALTER TABLE tasks ADD COLUMN completed_date TEXT NOT NULL DEFAULT '';

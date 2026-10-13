@@ -1,0 +1,12 @@
+-- Current-stage deadlines preserve Engineering estimates and work history.
+ALTER TABLE tasks ADD COLUMN production_completed_date TEXT NOT NULL DEFAULT '';
+DROP TRIGGER stage_changes_capture;
+CREATE TRIGGER stage_changes_capture AFTER UPDATE ON tasks WHEN NEW.development_status<>OLD.development_status OR NEW.qa_status<>OLD.qa_status OR NEW.work_status<>OLD.work_status BEGIN
+ INSERT INTO stage_changes(task_id,from_revision,to_revision,before_json,after_json,recorded_at)
+ VALUES(OLD.id,OLD.workflow_revision,NEW.workflow_revision,
+ json_object('development_status',OLD.development_status,'qa_status',OLD.qa_status,'work_status',OLD.work_status,'planning_status',OLD.planning_status,'next_action_owner',OLD.next_action_owner,'assignee',OLD.assignee,'qa_owner',OLD.qa_owner,'current_environment',OLD.current_environment,'stage_confirmed_at',OLD.stage_confirmed_at,'qa_passed_stage_at',OLD.qa_passed_stage_at,'estimated_delivery_date',OLD.estimated_delivery_date,'engineering_completed_date',OLD.engineering_completed_date,'qa_due_date',OLD.qa_due_date,'qa_completed_date',OLD.qa_completed_date,'completed_date',OLD.completed_date,'delivery_reset_required',OLD.delivery_reset_required,'feasibility',OLD.feasibility,'production_completed_date',OLD.production_completed_date),
+ json_object('development_status',NEW.development_status,'qa_status',NEW.qa_status,'work_status',NEW.work_status,'planning_status',NEW.planning_status),NEW.updated_at);
+END;
+-- Only recover dates from actual recorded, non-undone work for existing current builds.
+UPDATE tasks SET qa_completed_date=COALESCE((SELECT COALESCE((SELECT e.activity_date FROM activity_edits e WHERE e.activity_id=a.id ORDER BY e.rowid DESC LIMIT 1),a.activity_date) FROM activities a WHERE a.task_id=tasks.id AND a.action_type='QA Testing' AND a.result='Passed' AND a.created_at>=tasks.stage_confirmed_at AND NOT EXISTS(SELECT 1 FROM excluded_activities x WHERE x.activity_id=a.id) ORDER BY a.created_at DESC,a.rowid DESC LIMIT 1),'') WHERE qa_status='Passed' AND qa_passed_stage_at=stage_confirmed_at AND qa_completed_date='';
+UPDATE tasks SET production_completed_date=COALESCE((SELECT COALESCE((SELECT e.activity_date FROM activity_edits e WHERE e.activity_id=a.id ORDER BY e.rowid DESC LIMIT 1),a.activity_date) FROM activities a WHERE a.task_id=tasks.id AND a.result='On Production' AND a.created_at>=tasks.stage_confirmed_at AND NOT EXISTS(SELECT 1 FROM excluded_activities x WHERE x.activity_id=a.id) ORDER BY a.created_at DESC,a.rowid DESC LIMIT 1),'') WHERE development_status='On Production';
