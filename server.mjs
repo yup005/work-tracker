@@ -1,8 +1,10 @@
-/** Work Tracker HTTP API. Hosted account setup requires trusted upstream identity headers. */
+import {createTaskSignals} from './task-signals.mjs';
+/** Work Tracker HTTP API. Hosted setup requires trusted upstream identity headers. */
 const TYPES = ['Bug Fix','New Feature','Improvement','UI/UX','Investigation'];
 const PRIORITIES = ['Low','Medium','High','Urgent'];
 const DEV = ['New Request','Under Review','Approved','In Development','PR Submitted','Merged / Awaiting Stage','On Stage','Approved for Production','Awaiting Production Deploy','On Production','Closed','On Hold'];
-const QA = ['Not Tested','Retest Required','Passed','Partially Passed','Changes Required','Need Explanation','No Visible Changes','Unable to Test'];
+const QA_RESULTS = ['Passed','Partially Passed','Not Passed'];
+const QA = ['Not Passed','Not Tested','Retest Required','Passed','Partially Passed','Changes Required','Need Explanation','No Visible Changes','Unable to Test'];
 const ACTIONS = ['Requirement','Development','PR','Merge','Deployment','QA Testing','Feedback','Status Change','Other'];
 const fmtDate = () => new Date().toLocaleDateString('en-CA',{timeZone:'America/Los_Angeles'});
 const stamp = () => new Date().toISOString();
@@ -51,7 +53,7 @@ export function instructionGuides(user){
  'Choose Backlog or Planned for future work. Change Planning status to Active in Work tracking when work begins; in Engineering details, expand Task settings to find it.',
  'In Engineering details, expand Task settings for Primary Owner and Collaborators. Assign specific assistance under Collaboration to request their action.',
  'QA due date starts seven days after entering QA. After QA returns work to Engineering, set a new Engineering estimated delivery date before the next QA round.',
- 'Use Undo Stage Change only for the latest mistaken transition, with a reason. Activity remains in history. Use the QA result to formally return failed work to Engineering.',
+ 'To correct a mistaken confirmation, use Undo this stage change in the matching Previous stage card. If the latest update is not shown there, open Task settings → Stage change history → Undo last stage change. Review the values and enter a reason; history remains. For failed QA, record the QA result in Next Step.',
  'In Activity timeline, choose Edit activity to correct notes, date or attachments. Expand Edit history to read prior versions.'
  ]});
  if(!manager)guides.push({id:'action-dashboard-'+audience+'-v3',surface:'dashboard',title:'Your actions and follow-ups',steps:[
@@ -73,6 +75,18 @@ export function instructionGuides(user){
  'Edit activity corrects dated work while retaining history. The PM owner or Admin can Archive or Delete at the bottom; shared or released history is preserved by archiving.'
  ]});
  const add=(id,surface,title,steps)=>guides.push({id,surface,title,steps});
+ add('backlog-board-'+audience+'-v1','board','Keeping Backlog separate',manager?[
+  'Expand Backlog or Planned below the active tasks to review future work separately.'
+ ]:[
+  'In + New, choose Backlog and leave Assignee empty to record an idea before assigning an engineer.',
+  'Expand Backlog below the active Board tasks. In Task settings, choose Primary Owner and change Planning status to Active when the work is ready to begin.'
+ ]);
+ add('board-focus-'+audience+'-v1','board','Focus on the work you need',[
+  'Choose Feasibility for requests awaiting assessment, Development for development and fixes, or PR & Stage for PR review and Stage deployment. Only the selected tab shows its count.',
+  manager?'Use All or Unassigned beside the stage tabs to review task ownership. Viewing does not assign a task.':'Choose All, Needs my action or Unassigned beside the stage tabs. Needs my action includes your current steps and shared PR review/deployment steps.',
+  'Daily Engineering Activity is collapsed initially. Click its heading to load the daily records; change Work date inside to review another day.'
+ ]);
+ add('stage-colors-'+audience+'-v1','board','Task stage colors',['Look at the task background on Engineering Board and its Next Step card: gray is waiting, blue is PR, yellow is waiting for QA, red needs changes, pale green is Production and stronger green is completed. Keep reading the stage label for the exact status.']);
  add('activity-preview-'+audience+'-v1','dashboard','Reading activity details',['Today’s activity shows a short preview of each entry. Click an entry to read its full notes and attachments; for Engineering activity, use Open task to continue to its task.']);
  add('task-reporting-'+audience+'-v1','dashboard','Creating tasks and reporting bugs',manager?[
   'Choose a date on Dashboard to read new task submissions and bug reports in Today’s activity. Click an entry to open its task and attachments.'
@@ -120,7 +134,7 @@ export function instructionGuides(user){
   'Click a task or project to open its Overview and the ready-to-use Add activity form. Click its status tag to change In Progress, Waiting or Completed, then confirm.',
   'Ordinary activity needs only a description, work date and optional attachments. When logging work on a task, check Complete task if the whole task is finished.' ,
   'Use + Project above Daily Work Board to group related tasks. Projects appear separately above the board; a task can also stand alone.',
-  'Use the dashed upload area for images or files: drag them in, click to choose, or paste screenshots. On a phone, tap it to choose photos or files.',
+  'Click the dashed attachment area to focus it. A blue outline means it is ready; press ⌘V / Ctrl+V to paste an image there. Choose files opens the file picker.',
   'Expand Daily Work activity to review dated entries. Your private work is visible to you; the Manager can review its daily activity.'
  ]);
  if(!manager){
@@ -128,7 +142,7 @@ export function instructionGuides(user){
    '+ Task in Related tasks creates a piece of work within this project. Choose Completed when adding a task that is already finished. The Add activity form is already open below the related tasks and defaults to this project.',
    'In Add activity, choose Project itself or one of its unfinished tasks, describe your work and attach screenshots. Complete task finishes a one-off task; Complete this occurrence finishes only the current repeat.',
    'Click the status tag in the project overview, choose In Progress, Waiting or Completed, then confirm. Edit project lets you upload or manage project reference attachments. The overview previews existing files; the timeline contains dated work.',
-   'Use a dashed upload area to drop images or files, click to choose files, or paste screenshots. On a phone, tap that area to choose photos or files.',
+   'Click the dashed attachment area to focus it. A blue outline means it is ready; press ⌘V / Ctrl+V to paste an image there. Choose files opens the file picker.',
    'Archive and Delete are inside Edit project. Archiving retains history; archived work can be restored from the board filter.'
   ]);
   add('private-task-v9','private-task','Continue a task across days',[
@@ -138,25 +152,25 @@ export function instructionGuides(user){
    'Click the status tag and choose Complete this occurrence for repeating work. Confirm its completion date to advance the next reminder. Use Edit task → Repeat → Does not repeat or Archive task to stop future repeats.',
    'Set Completed date when marking a task Completed, or click its date in Overview to correct it. Activity work dates are separate. Completed tasks stay out of new Activity belongs to lists.',
    'When a task shows Update needed, open it and record your latest progress in Add activity.',
-   'Use a dashed upload area to drop images or files, click to choose files, or paste screenshots. On a phone, tap that area to choose photos or files.',
+   'Click the dashed attachment area to focus it. A blue outline means it is ready; press ⌘V / Ctrl+V to paste an image there. Choose files opens the file picker.',
    'Archive and Delete are inside Edit task. To restore archived work, select Archived work on Daily Work Board.'
   ]);
  }
  add('engineering-board-'+(manager?'manager-v8':admin?'admin-v9':'shared-v9'),'board','Using the shared Engineering Board',[
   manager?'Click a task to view its next step, feedback, screenshots and history.':'Create a shared request with + New. Use a broad category and optionally link it to a parent task.',
-  ...(!manager?['In New task, add images or files in the dashed Attachments area before clicking Create task. Drop files, click to choose, or paste a screenshot; on a phone, tap the area. Remove a selected file with ×. If an upload fails, click Retry uploads.']:[]),
+  ...(!manager?['In New task, add images or files before clicking Create task. Click the Attachments area, then paste with ⌘V / Ctrl+V, or click Choose files. Remove a selected file with ×. If an upload fails, click Retry uploads.']:[]),
   ...(!manager?['Choose Engineering owner from Engineering members and QA owner from QA members. If an existing owner shows unavailable, choose another member. Admin users need the corresponding Work group to appear in these lists.']:[]),
   'Click a task to open it. Active shows unfinished tasks; Completed shows finished tasks. Archived stores tasks with their history and can include unfinished work. Archiving does not complete a task.',
-  'Use Cards / List at the top to switch the layout. Select All tasks, Engineering, Ready for QA or Production to focus the board; select All tasks to reset the stage. Open Filters for category, development, QA progress and sorting; remove a chip or use Clear all to reset filters.',
-  manager?'Use All team or Unassigned above the board to review task ownership. Viewing does not assign a task.':'Choose All team, Related to me, Needs my action or Unassigned above the board. Related to me includes requests you created and tasks where you are Engineering or QA owner; Needs my action focuses on your current step.',
+  'Use Cards / List at the top to switch the layout. Choose Feasibility, Development, PR & Stage, Ready for QA or Production to focus on one workflow step; choose All tasks to show every stage. Open Filters for category, development, QA progress and sorting.',
+  manager?'Use All or Unassigned beside the stage tabs to review task ownership. Viewing does not assign a task.':'Choose All, Needs my action or Unassigned beside the stage tabs. Needs my action includes your current steps and shared PR review/deployment steps.',
   ...(!manager&&(admin||engineer)?['Open an unassigned request and choose yourself as Engineer during review. Confirm feasibility and the delivery date to start development.']:[]),
   'Cards highlight the next step and show its owner beside the avatar. Switch to List to see Assignee and the last Engineering / QA dates. Open the task to carry out its step; Daily Engineering Activity shows dated work.',
   admin?'Archive and Delete are directly visible at the bottom of task details. Shared or released tasks are preserved by archiving. Use Archived tasks to find and restore them.':'Archived tasks are available from the Board scope filter.'
  ]);
- add('engineering-task-'+audience+(manager?'-v7':'-v11'),'engineering-task',manager?'Reading an engineering task':'Follow the task’s next step',[
-  manager?'Read Next Step to see the responsible person and required action; expand Activity timeline or Discussion for context.':'Next Step is the main workflow entry: use its confirmation button to record and advance work. Task details & PR holds reference fields and an optional log for other work.',
-  'Read Previous stage for the last completed result, notes and evidence. Task description and attachments follow it; expand Activity timeline for the full history.',
-  'The due date follows the current stage: entering QA gives QA seven days from Engineering delivery; passing QA gives Production seven days from the QA work date. Production delivery gives the completion check seven days.',
+ add('engineering-task-'+audience+(manager?'-v8':'-v12'),'engineering-task',manager?'Reading an engineering task':'Follow the task’s next step',[
+  'Read Task description and Task images & files at the top. Expand Next Step below them to see the current action, responsible person and stage controls.',
+  'Expand Next Step when you are ready to confirm progress, a QA result or delivery. Read Previous stage below it for the last completed result; expand Activity timeline for the full history.',
+  'The due date follows the current stage: entering QA gives QA seven days from Engineering delivery; passing QA gives Production seven days from the QA work date. Confirming Production deployment completes the task.',
   ...(!manager?['If QA returns the task, enter a new Engineering estimated delivery date in Next Step before confirming progress or a fresh Stage handoff. The previous estimate stays in history.',
   'Expand Task settings for planning, primary owner, collaborators and follow-up reminders. These settings supplement Next Step; use Next Step to advance the workflow.']:[]),
   ...(!manager?['For tasks handed off from PM, Confirmed starts Engineering. Needs Clarification or Cannot Complete returns the same task to PM; explain the missing details or feasibility concern. After review, Return to PM is available in Next Step. Direct Engineering tasks retain their original review behavior.']:[]),
@@ -168,9 +182,41 @@ export function instructionGuides(user){
   ...(!manager&&!engineer&&!qa?['Engineering reviews scope and delivery, develops the change and confirms Stage before QA tests it. Passed QA then allows Production handoff.']:[]),
   manager||!(admin||engineer)?'View Completed date on finished tasks. Activity timeline keeps the separate work dates.':'Set Completed date when confirming completion. Click the date in task details to correct it; Activity timeline keeps its own work dates.',
   'Click Reply on a highlighted comment to write underneath it. Add images if needed, then click Post reply. Open Discussion to read or reply to older comments.',
-  ...(!manager&&(admin||engineer)?['You can record work on a task assigned to another engineer. Keep the Assignee unchanged. Once the change is on Production, add your completion notes in Next Step and click Confirm task complete.']:[]),
+  ...(!manager&&(admin||engineer)?['You can record work on a task assigned to another engineer. Keep the Assignee unchanged. Confirm deployed & complete after verifying the Production deployment; no separate completion check is needed.']:[]),
   ...(admin?['Archive and Delete are at the bottom of task details. Archive retains history; shared or released tasks can only be archived. Delete asks for confirmation.']:[]),
-  ...(!manager?['Use the dashed area to drop images or files, click to choose files, or paste screenshots with Ctrl/Cmd + V. On a phone, tap the area to choose photos or files. To edit a field, choose its new value and confirm.']:[])
+  ...(!manager?['Click the dashed attachment area to focus it. A blue outline means it is ready; press ⌘V / Ctrl+V to paste an image there. Choose files opens the file picker.']:[])
+ ]);
+ for(const surface of (manager?['account-avatar']:['engineering-task','pm-task','simple-work','daily','private-project','private-task','account-avatar']))add('attachment-paste-'+surface+'-'+audience+'-v1',surface,'Add attachments',[
+  'Click the dashed attachment area to focus it. A blue outline means it is ready; press ⌘V / Ctrl+V to paste an image there. Choose files opens the file picker.'
+ ]);
+ if(!manager)add('activity-type-clarity-'+audience+'-v1','engineering-task','Activity type and task stage',[
+  'Use Activity type in Record other work to describe work you did. Development work records an activity; it does not move the task to Development.',
+  'Use Next Step to confirm a workflow change. Category is the product area, Type is the kind of request, and Planning status says whether the work is queued or active.'
+ ]);
+ add('qa-results-'+audience+'-v1','engineering-task','Record a QA result',[
+  'Choose Passed, Partially Passed or Not Passed. Details are optional for Passed; describe the issues for the other two results.',
+  'Use Need Explanation to discuss a question with the engineer before choosing a result. Posting a discussion does not finish QA or return the task to development.'
+ ]);
+ add('task-window-'+audience+'-v1','engineering-task','Open task in a new tab',[
+  'Use Open in new tab in the task header for a full page. Save any changes first; the new tab opens the saved task.',
+  'Use Back to board to return. Task actions and permissions stay the same.'
+ ]);
+ if(!manager&&(admin||engineer||qa))add('stage-correction-'+audience+'-v1','engineering-task','Correct a mistaken stage change',[
+  'To correct a mistaken confirmation, click Undo this stage change in its Previous stage card. Review Changes to restore before confirming.',
+  'Enter why it was a mistake, then confirm Undo this change. If the latest update is not shown in Previous stage, find Undo last stage change in Task settings → Stage change history. Activity history is kept.',
+  'Only the Work Tracker record is restored. Code merges and deployments are unchanged. Use Next Step to record a failed QA result.'
+ ]);
+ add('pr-review-'+audience+'-v1','engineering-task','PR review and Stage deployment',manager||!(admin||engineer)?[
+  'PR review and merge are separate from deploying to Stage. QA starts only after the Stage handoff is confirmed.'
+ ]:[
+  'Confirm PR Submitted in Next Step. Then choose PR reviewer and click Assign reviewer; the reviewer and engineer owner share this task.',
+  'After the PR is reviewed and merged, click Confirm reviewed & merged. The engineer owner or another Engineering task owner can record it on behalf of a reviewer who does not use this workspace.',
+  'Deploy the merged build to Stage. In Next Step, choose QA owner and click Confirm deployed to Stage → QA only when the build is ready to test.'
+ ]);
+ add('qa-feedback-replies-'+audience+'-v1','engineering-task','Discussing QA feedback',manager?['Read replies below Previous stage · QA or in Discussion. The replies stay linked to the QA feedback.']:[
+  'Click Reply below Previous stage · QA to answer the feedback directly. Add your explanation or screenshots, then click Post reply.',
+  'Response needed from initially selects the QA author. Change or clear it before posting if a response is not needed. QA can reply in the same discussion.',
+  'Replies appear below the feedback and remain in Discussion. After fixing the issue, expand Next Step to confirm a fresh Stage build and hand it back to QA.'
  ]);
  add('version-'+(admin||engineer?'planning-v5':'viewing-v4'),'releases','Version plans and releases',[
   'Next release is the current plan. Planned release cards show later plans, including versions scheduled for next month.',
@@ -199,16 +245,39 @@ export function instructionGuides(user){
   ]);
  }
  add('account-avatar-v1','account-avatar','Your profile photo',[
-  'Open My account by clicking your avatar or the account icon. Drop a photo in the upload area, tap to choose one, or paste an image. It appears beside your name in the workspace.',
+  'Open My account by clicking your avatar or the account icon. Click the upload area, then paste with ⌘V / Ctrl+V, or click Choose files. Your photo appears beside your name in the workspace.',
   'Upload another photo to replace it. Remove photo returns to your initials. Change password opens the password form below your account details.'
  ]);
  add('account-password-v1','account','Manage your own password',[
   'Open Change password from your account. Enter your current password and confirm a new password of at least 12 characters.',
   'After a successful change, sign in again with the new password. On small screens, use the account icon in the top bar.'
  ]);
+ add('workspace-update-'+audience+'-v1','dashboard','What changed',manager?[
+  'PR review and merge are separate from deploying to Stage. QA starts only after the Stage handoff is confirmed.',
+  'Expand Backlog or Planned below the active tasks to review future work separately.'
+ ]:[
+  'PR Submitted → choose PR reviewer → Confirm reviewed & merged → deploy to Stage → choose QA. The engineer owner can record the review on behalf of the reviewer.',
+  'Click Reply below QA feedback to discuss it with Engineering or QA. Replies keep the original QA result unchanged.',
+  'Backlog may have no Assignee. Expand its separate Board section, then choose Primary Owner in Task settings when activating it.'
+ ]);
  return guides;
 }
-async function userInstructions(env,user){return {guides:instructionGuides(user),acknowledged:(await all(env,'SELECT instruction_id FROM instruction_acknowledgements WHERE email=?',user.email)).map(r=>r.instruction_id)};}
+function featureIntroductions(user,guides=instructionGuides(user)){
+ const preferred={dashboard:'dashboard-',board:'engineering-board-',daily:'daily-private-', 'engineering-task':'engineering-task-','pm-task':'pm-handoff-','simple-work':'simple-work-','private-project':'private-project-','private-task':'private-task-',releases:'version-planning-',team:'team-access-',history:'activity-history-','account-avatar':'account-avatar-',account:'account-password-',workspace:'workspace-switch-'};
+ const grouped=new Map();for(const g of guides){const key=(g.workspace||'')+'|'+g.surface;const group=grouped.get(key)||[];group.push(g);grouped.set(key,group);}
+ return [...grouped.values()].map(topics=>{const first=topics[0],main=topics.find(g=>g.id.startsWith(preferred[first.surface]||''))||first;
+  const steps=first.surface==='engineering-task'?(isBossUser(user)&&first.workspace!=='personal'?main.steps.slice(0,3):[main.steps[0], 'Use Next Step to confirm Engineering or QA work. QA offers Passed, Partially Passed and Not Passed; use Need Explanation to discuss questions first.', 'Open Task settings for owners and planning, Activity timeline for history, or Discussion to exchange details.']):main.steps.slice(0,3);
+  return {id:'first-use-'+first.surface+(first.workspace?'-'+first.workspace:''),surface:first.surface,workspace:first.workspace,title:main.title,steps,topic_ids:topics.map(g=>g.id)};
+ });
+}
+async function userInstructions(env,user){
+ const guides=instructionGuides(user),onboarding=featureIntroductions(user,guides),explicit=(await all(env,'SELECT instruction_id FROM instruction_acknowledgements WHERE email=?',user.email)).map(r=>r.instruction_id);
+ const baseline=(await all(env,'SELECT g.instruction_id FROM instruction_baseline_guides g JOIN instruction_baseline_users u ON u.email=?',user.email)).map(g=>g.instruction_id);
+ const read=new Set([...explicit,...baseline]),family=id=>id.replace(/-v\d+$/,'').replace(/(?:-(?:admin|engineering-qa|engineering|qa|manager|member|shared))+$/,''),readFamilies=new Set([...read].map(family));
+ const acknowledged=[...explicit,...baseline.filter(id=>guides.some(g=>g.id===id))];
+ for(const intro of onboarding)if(read.has(intro.id)||intro.topic_ids.some(id=>read.has(id)||readFamilies.has(family(id))))acknowledged.push(intro.id);
+ return {guides,onboarding,acknowledged:[...new Set(acknowledged)]};
+}
 async function sharedDailyAttachments(env,date,actor=''){
  return all(env,`SELECT DISTINCT f.id,f.task_id,f.activity_id,f.comment_id,f.owner_email,f.filename,f.byte_size,f.content_type,f.created_at
  FROM attachments f JOIN effective_work_activities a ON f.activity_id=a.id OR (a.comment_id IS NOT NULL AND f.comment_id=a.comment_id) OR (f.task_id=a.task_id AND f.activity_id IS NULL AND f.comment_id IS NULL AND a.action_type='Requirement' AND a.result='New request submitted' AND a.id=(SELECT id FROM activities initial WHERE initial.task_id=a.task_id ORDER BY initial.rowid LIMIT 1))
@@ -309,12 +378,16 @@ function workflowGuide(t){
  const base={revision:t.workflow_revision,owner:t.next_action_owner||t.assignee,role:'Engineering'};
  if(t.archived)return {...base,phase:'archived',instruction:'Restore this task to continue.',actions:[]};
  if(t.development_status==='Closed')return {...base,phase:'done',owner:'',instruction:'Task completed. Review the history below.',actions:[]};
- if(t.development_status==='On Production')return {...base,phase:'done',owner:t.assignee,instruction:'This change is on Production. Record your completion check or handoff, then mark the task complete.',actions:['close']};
+ if(t.development_status==='On Production')return {...base,phase:'done',owner:'',instruction:'Production deployment is complete. Review the history below.',actions:[]};
  if(qaReady(t)&&!productionReady(t))return {...base,phase:'qa',role:'QA',owner:t.qa_owner||t.next_action_owner,instruction:'The engineer has confirmed this change is merged to Stage and ready to test. Test it and record the result. Issues return to Engineering.',actions:['qa']};
  if(productionReady(t))return {...base,phase:'production',owner:t.assignee,instruction:'QA passed this Stage build. Deploy to Production, verify the result, then confirm here to include it in the version update.',actions:['production']};
  if(t.feasibility!=='Confirmed')return {...base,phase:'review',instruction:hasPmOrigin(t)?'Review the PM design. Choose Confirmed and a delivery date to start Engineering; Needs Clarification or Cannot Complete returns the task to PM with your explanation.':t.feasibility==='Pending'?'Review feasibility, choose the engineer and confirm the estimated delivery date.':t.feasibility==='Cannot Complete'?'On hold: engineer cannot complete this request. Revise the scope and review again.':'Clarify the request, then confirm feasibility and delivery date.',actions:['review']};
+ const owners=[...new Set([t.pr_reviewer,t.assignee].filter(Boolean))];
+ if(t.development_status==='PR Submitted')return {...base,phase:'pr_review',owner:t.pr_reviewer||t.assignee,owners,instruction:'Choose the PR reviewer, then confirm review and merge. The engineer owner or another Engineering task owner can record this on behalf of the reviewer.',actions:['assign-pr-reviewer','pr-review','progress']};
+ if(t.development_status==='Merged / Awaiting Stage')return {...base,phase:'stage_deploy',owner:t.assignee,owners,instruction:'PR review and merge are complete. Deploy the merged build to Stage, verify it is ready to test, then select QA and confirm the handoff.',actions:['stage','progress']};
  return {...base,phase:'development',owner:t.assignee,instruction:t.qa_status!=='Not Tested'?'Address the QA feedback. Confirm the fixed build is merged to Stage and ready to test, then hand it back to QA in the same step.':'Continue engineering work. Confirm merged to Stage and assign QA in one step, only when the build is available for testing.',actions:['progress','stage']};
 }
+const taskSignals=createTaskSignals({all,first,sql,workflowGuide,id,stamp});
 async function workflowMember(env,email,group){
  await validMember(env,email);
  const u=await first(env,'SELECT groups_json FROM users WHERE email=? AND enabled=1',email);
@@ -325,7 +398,8 @@ function developmentTransition(t,target){
  if(['In Development','PR Submitted','Merged / Awaiting Stage','On Stage','Approved for Production','Awaiting Production Deploy','On Production'].includes(target)&&t.feasibility!=='Confirmed')throw Object.assign(new Error('Engineer must confirm feasibility and delivery first'),{status:409});
  if(['Approved for Production','Awaiting Production Deploy','On Production'].includes(target)&&!productionReady(t))throw Object.assign(new Error('QA must pass the current Stage build before Production'),{status:409});
  if(target==='Closed'&&!['On Production','Closed'].includes(t.development_status))throw Object.assign(new Error('Confirm Production deployment before closing the task'),{status:409});
- const c={development_status:target,current_environment:stepEnvironment(target,t.current_environment)};if(target==='Closed')c.completed_date=t.completed_date||fmtDate();else if(t.development_status==='Closed')c.completed_date='';
+ if(['Merged / Awaiting Stage','On Stage'].includes(target)&&t.development_status==='PR Submitted'&&!t.pr_review_merged_at)throw Object.assign(new Error('Confirm PR review and merge before deploying to Stage'),{status:409});
+ const c={development_status:target==='On Production'?'Closed':target,current_environment:stepEnvironment(target,t.current_environment)};if(target==='On Production'){c.production_completed_date=fmtDate();c.completed_date=fmtDate();c.planning_status='Completed';}if(target==='Closed')c.completed_date=t.completed_date||fmtDate();else if(t.development_status==='Closed')c.completed_date='';
  if(target==='On Stage'&&t.development_status!=='On Stage'){
   if(!t.qa_owner)throw Object.assign(new Error('Choose the QA owner before confirming Stage'),{status:400});
   c.stage_confirmed_at=stamp();c.qa_passed_stage_at='';c.qa_status=t.qa_status==='Not Tested'?'Not Tested':'Retest Required';c.next_action_owner=t.qa_owner;
@@ -333,6 +407,7 @@ function developmentTransition(t,target){
   c.stage_confirmed_at='';c.qa_passed_stage_at='';c.next_action_owner=t.primary_owner||t.assignee;
  }else if(['Approved for Production','Awaiting Production Deploy'].includes(target))c.next_action_owner=t.primary_owner||t.assignee;
  else if(['On Production','Closed'].includes(target))c.next_action_owner='';
+ if(['In Development','PR Submitted'].includes(target)){c.pr_review_merged_at='';c.pr_review_confirmed_by='';if(target==='PR Submitted')c.next_action_owner=t.pr_reviewer||t.assignee;}
  return c;
 }
 function qaTransition(t,result){
@@ -340,7 +415,7 @@ function qaTransition(t,result){
  if(!QA.includes(result))throw Object.assign(new Error('Choose a QA result'),{status:400});
  if(['Not Tested','Retest Required'].includes(result))return {qa_status:result,qa_passed_stage_at:''};
  if(result==='Passed')return {qa_status:result,qa_passed_stage_at:t.stage_confirmed_at,development_status:'Approved for Production',next_action_owner:t.assignee};
- return {qa_status:result,qa_passed_stage_at:'',stage_confirmed_at:'',development_status:'In Development',current_environment:'Local',next_action_owner:t.assignee};
+ return {pr_review_merged_at:'',pr_review_confirmed_by:'',qa_status:result,qa_passed_stage_at:'',stage_confirmed_at:'',development_status:'In Development',current_environment:'Local',next_action_owner:t.assignee};
 }
 async function saveTaskTransition(env,t,changes,expected=t.workflow_revision){
  const fields=Object.keys(changes),result=await run(env,`UPDATE tasks SET ${fields.map(f=>f+'=?').join(',')},updated_at=?,workflow_revision=workflow_revision+1 WHERE id=? AND workflow_revision=? AND archived=0 AND deleted=0`,...fields.map(f=>changes[f]),stamp(),t.id,expected);
@@ -349,6 +424,7 @@ async function saveTaskTransition(env,t,changes,expected=t.workflow_revision){
 const ENVIRONMENTS=['—','Local','PR','Stage','Production'];
 function validUrl(value){if (!value) return '';try {const u=new URL(value);if (u.protocol!=='https:'||u.hostname!=='github.com') throw 0;return u.href.slice(0,600);}catch {throw Object.assign(new Error('PR link must be a github.com HTTPS URL'),{status:400});}}
 function requireDate(v){const d=clean(v,10)||fmtDate();if(!isDate(d)) throw Object.assign(new Error('Date must use YYYY-MM-DD'),{status:400});return d;}
+function dashboardTask(t){const keys=['id','title','type','category','work_kind','priority','sort_order','planning_status','assignee','primary_owner','next_action_owner','qa_owner','created_by','workflow','current_due_date','current_due_label','follow_up','qa_status','development_status','work_status','pm_stage','urgency'];return Object.fromEntries(keys.map(k=>[k,t[k]]));}
 async function queryTasks(env,archived=0){const rows=await all(env,`SELECT t.*, (SELECT MAX(recorded_at) FROM stage_changes h WHERE h.task_id=t.id AND h.undone=0) last_stage_progress_at, (SELECT MAX(COALESCE((SELECT e.activity_date FROM activity_edits e WHERE e.activity_id=a.id ORDER BY e.rowid DESC LIMIT 1),a.activity_date)) FROM activities a WHERE a.task_id=t.id AND a.is_work=1 AND a.comment_id IS NULL AND NOT EXISTS(SELECT 1 FROM excluded_activities x WHERE x.activity_id=a.id)) last_progress_date, (SELECT MAX(activity_date) FROM activities a WHERE a.task_id=t.id AND a.action_type IN ('Development','PR','Merge','Deployment') AND NOT EXISTS(SELECT 1 FROM excluded_activities x WHERE x.activity_id=a.id)) last_engineer_action, (SELECT MAX(activity_date) FROM activities a WHERE a.task_id=t.id AND a.is_work=1 AND a.action_type='QA Testing' AND NOT EXISTS(SELECT 1 FROM excluded_activities x WHERE x.activity_id=a.id)) last_qa_action, (SELECT COUNT(*) FROM activities a WHERE a.task_id=t.id) activity_count FROM tasks t WHERE deleted=0 AND archived=? ORDER BY CASE WHEN development_status='Closed' THEN 1 ELSE 0 END, CASE priority WHEN 'Urgent' THEN 0 WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END,sort_order ASC,updated_at DESC`,archived);return rows.map(t=>{const result={...t,...currentStageDue(t),workflow:workflowGuide(t)};return {...result,follow_up:followUpState(result)};});}
 async function releasePlan(env){
  const releases=await all(env,'SELECT * FROM releases ORDER BY planned_date DESC,created_at DESC');
@@ -359,7 +435,9 @@ async function releasePlan(env){
   const last=releases.filter(r=>r.status==='Released').sort((a,b)=>b.released_date.localeCompare(a.released_date))[0];
   const date=new Date(next.planned_date+'T12:00:00Z');date.setUTCDate(date.getUTCDate()-7);
   const start=last?.released_date||date.toISOString().slice(0,10),end=next.planned_date<fmtDate()?fmtDate():next.planned_date;
-  const candidates=await all(env,`SELECT t.id,MAX(a.activity_date) production_date FROM tasks t JOIN activities a ON a.task_id=t.id WHERE t.archived=0 AND t.deleted=0 AND t.development_status IN ('On Production','Closed') AND a.action_type='Development' AND (a.environment='On Production' OR a.result='On Production') GROUP BY t.id HAVING MAX(a.activity_date)>? AND MAX(a.activity_date)<=?`,start,end);
+  const candidates=await all(env,`SELECT t.id FROM tasks t WHERE t.archived=0 AND t.deleted=0 AND t.work_kind='Engineering' AND (
+   (t.development_status IN ('On Stage','Approved for Production','Awaiting Production Deploy') AND t.qa_status='Passed' AND t.stage_confirmed_at<>'' AND t.qa_passed_stage_at=t.stage_confirmed_at AND (t.qa_completed_date='' OR t.qa_completed_date<=?))
+   OR (t.development_status IN ('On Production','Closed') AND ((t.production_completed_date>? AND t.production_completed_date<=?) OR EXISTS(SELECT 1 FROM activities a WHERE a.task_id=t.id AND a.action_type IN ('Development','Deployment') AND (a.environment='On Production' OR a.result='On Production') AND a.activity_date>? AND a.activity_date<=? AND NOT EXISTS(SELECT 1 FROM excluded_activities x WHERE x.activity_id=a.id)))))`,end,start,end,start,end);
   const reserved=new Set(releases.filter(r=>r.status==='Planned'&&r.id!==next.id).flatMap(r=>r.selected_task_ids));
   next.auto_candidates=candidates.filter(t=>!delivered.has(t.id)&&!reserved.has(t.id)).map(t=>t.id);
   next.auto_start=start;next.auto_end=end;
@@ -449,7 +527,7 @@ async function finishPrivateTask(env,user,item,officeId){
 async function contributors(env,t){const people=await all(env,`SELECT actor_email person FROM activities WHERE task_id=? AND is_work=1 UNION SELECT actor_email person FROM comments WHERE task_id=? UNION SELECT owner_email person FROM attachments WHERE task_id=?`,t.id,t.id,t.id);return [...new Set([t.created_by,...people.map(x=>x.person)].filter(p=>p&&p!=='github-sync'&&p!=='system'))];}
 async function taskDisposition(env,t){const people=await contributors(env,t),children=await first(env,'SELECT id FROM tasks WHERE parent_task_id=? AND deleted=0 LIMIT 1',t.id),shipped=await first(env,"SELECT id FROM releases WHERE status='Released' AND EXISTS(SELECT 1 FROM json_each(releases.task_ids_json) WHERE value=?) LIMIT 1",t.id);return {people,mode:people.length>1||children||shipped?'Archived':'Deleted',reason:people.length>1?'Multiple contributors':children?'Has child tasks':shipped?'Included in a released version':'Single contributor'};}
 async function validMember(env,email){if(!email)return;const u=await first(env,'SELECT enabled,groups_json FROM users WHERE email=?',email);if(!u||!u.enabled||(JSON.parse(u.groups_json).includes('Management')&&!hasPersonalWorkGroups({groups:JSON.parse(u.groups_json)})))throw Object.assign(new Error('Choose an active team member'),{status:400});}
-async function taskCategories(env){return (await all(env,'SELECT name FROM task_categories ORDER BY name COLLATE NOCASE')).map(c=>c.name);}
+async function taskCategories(env){return (await all(env,`SELECT c.name FROM task_categories c LEFT JOIN tasks t ON t.category=c.name COLLATE NOCASE AND t.deleted=0 GROUP BY c.name ORDER BY COUNT(t.id) DESC,c.name COLLATE NOCASE`)).map(c=>c.name);}
 function categoryName(value){
  if(typeof value!=='string')throw Object.assign(new Error('Enter a category name'),{status:400});
  const name=value.trim().replace(/\s+/g,' ');
@@ -470,8 +548,11 @@ async function api(req,env){
  const user=await currentUser(req,env);
  // Manager-only accounts and the team perspective stay read-only; combined groups can work in their personal perspective.
  const teamView=isBossUser(user)&&(!hasPersonalWorkGroups(user)||req.headers.get('x-workspace-mode')==='team');
+ // Urgent communication is an explicit, narrowly scoped exception for anyone who can access shared tasks.
+ const urgentRoute=p.match(/^\/api\/tasks\/([a-f0-9-]{36})\/urgent$/);
+ if(urgentRoute&&method==='POST'){const t=await task(env,urgentRoute[1],true),d=await json(req);return ok(await taskSignals.perform(env,t,user,clean(d.action,30)));}
  if(teamView && method!=='GET' && method!=='HEAD' && !(((p==='/api/password'||p==='/api/instructions/ack')&&method==='POST')||(p==='/api/avatar'&&['POST','DELETE'].includes(method)))) return err('Team overview is read-only',403);
- if(p==='/api/me' && method==='GET') return ok({user,instructions:await userInstructions(env,user),devMode:env.DEV_AUTH==='1' && ['127.0.0.1','localhost'].includes(new URL(req.url).hostname),statuses:{work_groups:Object.keys(WORK_GROUPS),development:DEV,qa:QA,types:['New Feature','Bug Fix','Improvement'],categories:await taskCategories(env),priorities:PRIORITIES,actions:ACTIONS}});
+ if(p==='/api/me' && method==='GET') return ok({user,instructions:await userInstructions(env,user),devMode:env.DEV_AUTH==='1' && ['127.0.0.1','localhost'].includes(new URL(req.url).hostname),statuses:{work_groups:Object.keys(WORK_GROUPS),development:DEV,qa:QA,qa_results:QA_RESULTS,types:['New Feature','Bug Fix','Improvement'],categories:await taskCategories(env),priorities:PRIORITIES,actions:ACTIONS}});
  if(p==='/api/avatar'&&method==='POST'){
   if(!env.BUCKET)return err('Avatar storage is not configured',503);
   const form=await req.formData(),file=form.get('file'),target=clean(form.get('email'),254).toLowerCase();if(target&&target!==user.email)return err('You can change only your own avatar',403);
@@ -495,9 +576,10 @@ async function api(req,env){
  }
  if(p==='/api/instructions/ack' && method==='POST'){
   const d=await json(req);
-  if(!instructionGuides(user).some(g=>g.id===d.id))return err('Instruction is not available to this account',404);
-  await run(env,'INSERT INTO instruction_acknowledgements(email,instruction_id,acknowledged_at) VALUES(?,?,?) ON CONFLICT(email,instruction_id) DO NOTHING',user.email,d.id,stamp());
-  return ok({id:d.id,acknowledged:true});
+  const ids=Array.isArray(d.ids)?[...new Set(d.ids)]:[d.id],available=[...instructionGuides(user),...featureIntroductions(user)];
+  if(!ids.length||ids.length>100||ids.some(id=>typeof id!=='string'||!available.some(g=>g.id===id)))return err('Instruction is not available to this account',404);
+  const date=stamp();await env.DB.batch(ids.map(id=>sql(env,'INSERT INTO instruction_acknowledgements(email,instruction_id,acknowledged_at) VALUES(?,?,?) ON CONFLICT(email,instruction_id) DO NOTHING',user.email,id,date)));
+  return ok({id:d.id,ids,acknowledged:true});
  }
  if(p==='/api/export' && method==='GET'){
    if(!isRole(user,'admin')) return err('Only Admin can export workspace data',403);
@@ -505,6 +587,10 @@ async function api(req,env){
    // Admin exports only shared workspace data and their own private work.
    // Full tenant backup, including other people's private records, must occur at DB infrastructure level.
    for(const name of ['users','tasks','activities','comments','releases','activity_edits','stage_changes','excluded_activities','qa_rounds','discussion_actions','discussion_action_history','task_collaborator_work','work_links','attachment_change_history']) result.tables[name]=await all(env,`SELECT * FROM ${name}`);
+   result.tables.task_urgency=await all(env,'SELECT * FROM task_urgency');
+   result.tables.urgent_events=await all(env,'SELECT * FROM urgent_events');
+   result.tables.urgent_acknowledgements=await all(env,'SELECT * FROM urgent_acknowledgements');
+   result.tables.task_numbers=await all(env,"SELECT * FROM task_numbers WHERE entity='shared' OR (entity='private' AND entity_id IN(SELECT id FROM private_work WHERE owner_email=?))",user.email);
    result.tables.private_work=await all(env,'SELECT * FROM private_work WHERE owner_email=?',user.email);
    result.tables.private_work_revisions=await all(env,'SELECT r.* FROM private_work_revisions r JOIN private_work w ON w.id=r.work_id WHERE w.owner_email=?',user.email);
    result.tables.office_logs=await all(env,'SELECT * FROM office_logs WHERE deleted=0 AND owner_email=?',user.email);
@@ -589,10 +675,11 @@ async function api(req,env){
   return ok({success:true},201);
  }
  const trackingResponse=await trackingRoutes(req,env,user,teamView);if(trackingResponse)return trackingResponse;
- if(p==='/api/tasks' && method==='GET') return ok({tasks:await queryTasks(env,url.searchParams.get('archived')==='1'?1:0)});
+ if(p==='/api/tasks' && method==='GET') return ok({tasks:await taskSignals.decorate(env,await queryTasks(env,url.searchParams.get('archived')==='1'?1:0),user)});
  if(p==='/api/tasks' && method==='POST'){
   const d=await json(req), title=clean(d.title,160),type=clean(d.type,30)||'New Feature',priority=clean(d.priority,16)||'Medium';
   if(!title || !TYPES.includes(type) || !PRIORITIES.includes(priority)) return err('Invalid title, type or priority');
+  if(clean(d.next_step,2000)||(clean(d.next_action_owner,254)&&clean(d.next_action_owner,254)!==clean(d.assignee,254)))return err('Next-step overrides were removed. Use the stage owner settings or Discussion.');
   const taskId=id(),description=clean(d.description,9000);
   const workKind=clean(d.work_kind,30)||'Engineering',planning=clean(d.planning_status,30)||'Active';if(!WORK_KINDS.includes(workKind)||!PLANNING.includes(planning)||planning==='Completed')return err('Choose a valid work type and planning status');if(workKind==='PM Task'&&!user.groups.includes('PM')&&!user.groups.includes('Engineering')&&!isRole(user,'admin'))return err('PM or Engineering permission required',403);if(clean(d.assignee,254)){if(workKind==='Quick Task')await validMember(env,clean(d.assignee,254));else await workflowMember(env,clean(d.assignee,254),workKind==='PM Task'?'PM':'Engineering');}if(clean(d.next_action_owner,254)&&workKind==='Engineering')await workflowMember(env,clean(d.next_action_owner,254),'Engineering');if(workKind!=='Engineering'&&!clean(d.assignee,254))return err('Choose the task owner');if(workKind==='PM Task'&&!PM_CATEGORIES.includes(d.work_category))return err('Choose a PM work category');
   const parent=clean(d.parent_task_id,36);await validateParent(env,taskId,parent);
@@ -609,10 +696,7 @@ async function api(req,env){
  if(tm){
   const taskId=tm[1],sub=tm[2]||'',t=await task(env,taskId,true);
   if(method==='GET'&&!sub){
-   const activities=await effectiveActivities(env,taskId);
-   const comments=await all(env,'SELECT c.*,EXISTS(SELECT 1 FROM pending_task_comments p WHERE p.comment_id=c.id) pending_action FROM comments c WHERE c.task_id=? ORDER BY c.created_at ASC,c.rowid ASC',taskId);
-   const attachments=await all(env,'SELECT id,task_id,activity_id,comment_id,owner_email,filename,byte_size,content_type,created_at FROM attachments WHERE deleted=0 AND task_id=? ORDER BY created_at DESC',taskId);
-   const disposition=await taskDisposition(env,t),tracking=await trackingTaskData(env,t),view={...t,last_progress_date:activities.filter(a=>a.is_work&&!a.comment_id&&!a.excluded).map(a=>a.activity_date).sort().at(-1)||'',last_stage_progress_at:tracking.stage_changes.find(h=>!h.undone)?.recorded_at||''};return ok({task:{...view,follow_up:followUpState(view)},workflow:workflowGuide(t),activities,comments,attachments,contributors:disposition.people,removal_mode:disposition.mode,removal_reason:disposition.reason,...tracking});
+   const [activities,comments,attachments,disposition,tracking,decorated,urgency_events]=await Promise.all([effectiveActivities(env,taskId),all(env,'SELECT c.*,EXISTS(SELECT 1 FROM pending_task_comments p WHERE p.comment_id=c.id) pending_action FROM comments c WHERE c.task_id=? ORDER BY c.created_at ASC,c.rowid ASC',taskId),all(env,'SELECT id,task_id,activity_id,comment_id,owner_email,filename,byte_size,content_type,created_at FROM attachments WHERE deleted=0 AND task_id=? ORDER BY created_at DESC',taskId),taskDisposition(env,t),trackingTaskData(env,t),taskSignals.decorate(env,[t],user),all(env,'SELECT * FROM urgent_events WHERE task_id=? ORDER BY recorded_at DESC,rowid DESC',taskId)]);const view={...decorated[0],last_progress_date:activities.filter(a=>a.is_work&&!a.comment_id&&!a.excluded).map(a=>a.activity_date).sort().at(-1)||'',last_stage_progress_at:tracking.stage_changes.find(h=>!h.undone)?.recorded_at||''};return ok({task:{...view,follow_up:followUpState(view)},workflow:workflowGuide(t),activities,comments,attachments,contributors:disposition.people,removal_mode:disposition.mode,removal_reason:disposition.reason,urgency_events,...tracking});
   }
   if(method==='DELETE'&&!sub){
    if(!isRole(user,'admin')&&!(t.work_kind==='PM Task'&&pmOwnerAllowed(user,t)))return err('Only Admin or the PM owner can remove this task',403);
@@ -643,6 +727,7 @@ async function api(req,env){
    if(simpleTask(t)||['Backlog','Planned'].includes(t.planning_status))return err('Activate Engineering work before using its workflow',409);
    if(d.confirm!==true)return err('Confirm the next step before continuing');
    if(!Number.isInteger(d.expected_revision)||d.expected_revision!==t.workflow_revision)return err('Task changed. Refresh it before confirming the next step.',409);
+   if(action==='close'&&t.development_status==='Closed'){if(!isRole(user,'engineer','admin'))return err('Engineering permission required',403);return ok({success:true,already_completed:true,workflow:guide});}
    if(!guide.actions.includes(action))return err('This action is not available at the current step',409);
    if(!isRole(user,action==='qa'?'qa':'engineer','admin'))return err((action==='qa'?'QA':'Engineering')+' permission required',403);
    const minutes=Number(d.minutes||0);if(!Number.isInteger(minutes)||minutes<0||minutes>1440)return err('Minutes must be 0–1440');const note=clean(d.notes,9000),date=requireDate(d.activity_date);let changes={},kind='Development',result='',isWork=0;
@@ -653,8 +738,12 @@ async function api(req,env){
     if(decision==='Confirmed'&&(!isDate(due)||due<fmtDate()))return err('Choose an estimated delivery date of today or later');
     if(decision!=='Confirmed'&&!note)return err('Explain what needs clarification or why this cannot be completed');
     if(hasPmOrigin(t)&&decision!=='Confirmed')return pmWorkflowAction(env,user,t,{...d,action:'request-details',notes:decision==='Cannot Complete'?'Cannot Complete: '+note:note});
-    changes={feasibility:decision,estimated_delivery_date:decision==='Confirmed'?due:'',review_notes:note,assignee:engineer,next_action_owner:decision==='Needs Clarification'?t.created_by:engineer,development_status:decision==='Confirmed'?'In Development':'On Hold',current_environment:decision==='Confirmed'?'Local':'—',stage_confirmed_at:'',qa_passed_stage_at:''};
+    changes={primary_owner:t.primary_owner||engineer,feasibility:decision,estimated_delivery_date:decision==='Confirmed'?due:'',review_notes:note,assignee:engineer,next_action_owner:decision==='Needs Clarification'?t.created_by:engineer,development_status:decision==='Confirmed'?'In Development':'On Hold',current_environment:decision==='Confirmed'?'Local':'—',stage_confirmed_at:'',qa_passed_stage_at:''};
     kind='Requirement';result='Engineer review: '+decision;isWork=1;
+   }else if(action==='assign-pr-reviewer'||action==='pr-review'){
+    const reviewer=clean(d.pr_reviewer,254)||t.pr_reviewer;await workflowMember(env,reviewer,'Engineering');
+    changes={pr_reviewer:reviewer,next_action_owner:reviewer};kind='PR';result='PR reviewer assigned';
+    if(action==='pr-review'){const merged=stamp();changes={...developmentTransition({...t,pr_review_merged_at:merged},'Merged / Awaiting Stage'),pr_reviewer:reviewer,pr_review_merged_at:merged,pr_review_confirmed_by:user.email,next_action_owner:t.assignee};result='PR reviewed and merged';isWork=1;}
    }else if(action==='progress'){
     const target=clean(d.development_status,80);if(!ENGINEERING_STAGES.includes(target))return err('Choose an engineering stage');
     changes=developmentTransition(t,target);result=target;isWork=note?1:0;
@@ -663,7 +752,7 @@ async function api(req,env){
     changes={...developmentTransition({...t,qa_owner:qa},'On Stage'),qa_owner:qa};result='On Stage';kind='Deployment';isWork=1;
    }else if(action==='qa'){
     const qa=clean(d.qa_status,40);if(['Not Tested','Retest Required'].includes(qa))return err('Record an actual test result');
-    if(!note)return err('Describe what you tested, the issue, or why testing was blocked');
+    if(qa!=='Passed'&&!note)return err('Describe what did not pass and what needs to change');
     changes=qaTransition(t,qa);result=qa;kind='QA Testing';isWork=1;
    }else if(action==='close'){
     if(!note)return err('Describe what you confirmed or reported before completing this task');
@@ -676,21 +765,21 @@ async function api(req,env){
     changes.estimated_delivery_date=due;
    }
    await trackedDates(env,t,changes,date);await saveTaskTransition(env,t,changes,d.expected_revision);await recordQaRound(env,t,changes,date);
-   const activityId=await addActivity(env,taskId,user.email,kind,date,action==='qa'?'Stage':changes.current_environment||t.current_environment,result,note||({stage:'Engineer confirmed the change is merged to Stage and available for QA testing.',production:'Engineer confirmed Production deployment and verification.'}[action]||'Workflow step confirmed'),t.github_pr_url,isWork,true,minutes,action==='qa'?'QA':'Engineering');
+   const activityId=await addActivity(env,taskId,user.email,kind,date,action==='qa'?'Stage':changes.current_environment||t.current_environment,result,note||({stage:'Engineer confirmed the change is merged to Stage and available for QA testing.',production:'Engineer confirmed Production deployment and verification.',qa:'QA passed the current Stage build.'}[action]||'Workflow step confirmed'),t.github_pr_url,isWork,action!=='assign-pr-reviewer',minutes,action==='qa'?'QA':'Engineering');
    if(action==='production')await ensureRelease(env,'system');
    return ok({success:true,id:activityId,workflow:workflowGuide(await task(env,taskId))},201);
   }
   if(method==='PATCH'&&!sub){
    if(simpleTask(t))return err('Use Work tracking to edit this task',409);
    if(['Backlog','Planned'].includes(t.planning_status)&&Object.hasOwn(await req.clone().json(),'development_status'))return err('Activate this task before advancing its workflow',409);
-   const d=await json(req);const date=requireDate(d.activity_date), changes=[];
-   const fields=['title','description','type','priority','project','assignee','next_action_owner','development_status','qa_status','github_pr_url','sort_order','category','parent_task_id','next_step','current_environment','estimated_delivery_date','qa_owner','completed_date'];
+   const d=await json(req);if(Object.hasOwn(d,'next_step')||Object.hasOwn(d,'next_action_owner'))return err('Next-step overrides were removed. Use the stage owner settings or Discussion.');const date=requireDate(d.activity_date), changes=[];
+   const fields=['title','description','type','priority','project','assignee','development_status','qa_status','github_pr_url','sort_order','category','parent_task_id','current_environment','estimated_delivery_date','qa_owner','completed_date'];
    for(const field of fields){
      if(!Object.hasOwn(d,field)) continue;
      if(['estimated_delivery_date','qa_owner','completed_date'].includes(field)&&!isRole(user,'engineer','admin'))return err('Engineering permission required',403);
      if(field==='development_status'&&!isRole(user,'engineer','admin')) return err('Only engineer or boss can update development status',403);
      if(field==='qa_status'&&!isRole(user,'qa','admin')) return err('Only QA or boss can update QA status',403);
-     if(['category','parent_task_id','next_step','current_environment'].includes(field)&&!isRole(user,'engineer','qa','admin'))return err('Task editing permission required',403);
+     if(['category','parent_task_id','current_environment'].includes(field)&&!isRole(user,'engineer','qa','admin'))return err('Task editing permission required',403);
      if(field==='sort_order'&&!isRole(user,'admin')) return err('Only QA or boss can change board order',403);
      if(['title','description','type','project','priority','assignee','next_action_owner'].includes(field)&&!isRole(user,'qa','admin')) return err('Only QA or boss can edit task definition',403);
      const value=field==='sort_order'?Number(d[field]):field==='github_pr_url'?validUrl(clean(d[field],600)):field==='category'?categoryName(d[field]):clean(d[field],field==='description'?9000:field==='next_step'?2000:field==='title'?160:254);
@@ -703,7 +792,6 @@ async function api(req,env){
      if(field==='sort_order'&&(!Number.isInteger(value)||value<1||value>1000000))return err('Manual order must be an integer from 1 to 1,000,000');
      if((field==='type'&&!TYPES.includes(value))||(field==='priority'&&!PRIORITIES.includes(value))||(field==='development_status'&&!DEV.includes(value))||(field==='qa_status'&&!QA.includes(value))) return err('Invalid '+field);
      if(field==='assignee'&&value)await workflowMember(env,value,'Engineering');
-     if(field==='next_action_owner'&&value)await workflowMember(env,value,qaReady(t)?'QA':'Engineering');
      if(field==='parent_task_id')await validateParent(env,taskId,value);
      if(value!==t[field]) changes.push([field,value,t[field]]);
    }
@@ -711,7 +799,6 @@ async function api(req,env){
     for(const change of changes)if(change[0]==='category')change[1]=await ensureTaskCategory(env,change[1]);
     const patch=Object.fromEntries(changes.map(([f,v])=>[f,v]));
     if(patch.development_status==='On Stage')await workflowMember(env,patch.qa_owner||t.qa_owner,'QA');
-    if(qaReady(t)&&patch.next_action_owner)patch.qa_owner=patch.next_action_owner;
     if(Object.hasOwn(patch,'development_status'))Object.assign(patch,developmentTransition({...t,qa_owner:patch.qa_owner??t.qa_owner},patch.development_status));
     if(Object.hasOwn(d,'qa_status')&&d.qa_status!==t.qa_status)Object.assign(patch,qaTransition(t,d.qa_status));
     if(Object.hasOwn(d,'current_environment'))patch.current_environment=d.current_environment;if(Object.hasOwn(d,'completed_date'))patch.completed_date=completedDate(d.completed_date);
@@ -743,6 +830,7 @@ async function api(req,env){
    const pr=validUrl(clean(d.github_pr_url,600));
    let changes={};
    if(d.advance_workflow!==false&&['Backlog','Planned'].includes(t.planning_status)&&((kind==='Development'&&DEV.includes(result))||kind==='QA Testing'))return err('Activate this task before advancing its workflow',409);
+   if(kind==='QA Testing'&&['Partially Passed','Not Passed'].includes(result)&&!note)return err('Describe what did not pass and what needs to change');
    if(d.advance_workflow!==false&&kind==='QA Testing'){if(simpleTask(t))return err('Simple work does not use QA workflow');if(!qaReady(t))return err('Engineer must confirm this build is on Stage before QA testing',409);if(QA.includes(result))changes=qaTransition(t,result);}
    else if(d.advance_workflow!==false&&!simpleTask(t)&&kind==='Development'&&DEV.includes(result))changes=developmentTransition(t,result);
    if(d.advance_workflow!==false&&manual&&ENVIRONMENTS.includes(en)&&isRole(user,'engineer','qa','admin'))changes.current_environment=en;
@@ -752,11 +840,12 @@ async function api(req,env){
    return ok({success:true,id:activityId},201);
   }
   if(method==='POST'&&sub==='comments'){
-   const d=await json(req),body=clean(d.body,6000),replyTo=clean(d.reply_to,36);
+   const d=await json(req),body=clean(d.body,6000),replyTo=clean(d.reply_to,36);let replyActivity=clean(d.reply_to_activity,36);
    if(!body) return err('Comment required');
-   if(replyTo&&!await first(env,'SELECT id FROM comments WHERE id=? AND task_id=?',replyTo,taskId))return err('Reply must belong to a comment on this task');
+   if(replyTo){const parent=await first(env,'SELECT id,reply_to_activity FROM comments WHERE id=? AND task_id=?',replyTo,taskId);if(!parent)return err('Reply must belong to a comment on this task');if(replyActivity&&replyActivity!==parent.reply_to_activity)return err('Reply must stay with its original QA feedback');replyActivity=parent.reply_to_activity||'';}
+   if(replyActivity&&!await first(env,"SELECT a.id FROM activities a WHERE a.id=? AND a.task_id=? AND a.action_type='QA Testing' AND a.comment_id IS NULL AND NOT EXISTS(SELECT 1 FROM excluded_activities x WHERE x.activity_id=a.id)",replyActivity,taskId))return err('Reply must refer to QA feedback on this task');
    const membersBefore=Array.isArray(d.action_owners)?d.action_owners:[];for(const person of membersBefore)await validMember(env,clean(person,254));
-   const commentId=id();await run(env,'INSERT INTO comments(id,task_id,actor_email,body,reply_to) VALUES(?,?,?,?,?)',commentId,taskId,user.email,body,replyTo||null);
+   const commentId=id();await run(env,'INSERT INTO comments(id,task_id,actor_email,body,reply_to,reply_to_activity) VALUES(?,?,?,?,?,?)',commentId,taskId,user.email,body,replyTo||null,replyActivity||null);
    const explicit=Array.isArray(d.action_owners)?d.action_owners.map(x=>clean(x,254)):[];const members=await all(env,'SELECT email FROM users WHERE enabled=1');const mentioned=members.filter(u=>body.includes('@'+u.email)).map(u=>u.email);const targets=[...new Set([...explicit,...mentioned])];
    for(const person of targets)await validMember(env,person);
    for(const person of targets)await run(env,'INSERT INTO discussion_actions(id,task_id,comment_id,owner_email) VALUES(?,?,?,?)',id(),taskId,commentId,person);
@@ -895,13 +984,13 @@ async function api(req,env){
    const boss=teamView;
    const daily=boss?await all(env,`SELECT actor_email email,COUNT(*) count FROM effective_work_activities WHERE is_work=1 AND NOT EXISTS(SELECT 1 FROM excluded_activities x WHERE x.activity_id=effective_work_activities.id) AND activity_date=? GROUP BY actor_email`,date):await all(env,`SELECT actor_email email,COUNT(*) count FROM effective_work_activities WHERE is_work=1 AND NOT EXISTS(SELECT 1 FROM excluded_activities x WHERE x.activity_id=effective_work_activities.id) AND activity_date=? AND actor_email=? GROUP BY actor_email`,date,user.email);
    const personal=boss?await all(env,`SELECT owner_email email,COUNT(*) count FROM office_logs WHERE deleted=0 AND work_date=? GROUP BY owner_email`,date):await all(env,`SELECT owner_email email,COUNT(*) count FROM office_logs WHERE deleted=0 AND work_date=? AND owner_email=? GROUP BY owner_email`,date,user.email);
-   const tasks=await queryTasks(env);
+   const tasks=await taskSignals.decorate(env,await queryTasks(env),user);
    const todayActions=boss?await all(env,`SELECT a.id activity_id,a.task_id,a.actor_email person,a.action_type category,a.activity_date work_date,a.result,a.notes,t.title,a.created_at FROM effective_work_activities a JOIN tasks t ON t.id=a.task_id WHERE a.is_work=1 AND NOT EXISTS(SELECT 1 FROM excluded_activities x WHERE x.activity_id=a.id) AND t.deleted=0 AND a.activity_date=? ORDER BY a.created_at DESC LIMIT 40`,date):await all(env,`SELECT a.id activity_id,a.task_id,a.actor_email person,a.action_type category,a.activity_date work_date,a.result,a.notes,t.title,a.created_at FROM effective_work_activities a JOIN tasks t ON t.id=a.task_id WHERE a.is_work=1 AND NOT EXISTS(SELECT 1 FROM excluded_activities x WHERE x.activity_id=a.id) AND t.deleted=0 AND a.activity_date=? AND a.actor_email=? ORDER BY a.created_at DESC LIMIT 40`,date,user.email);
    const todayOffice=boss?await all(env,'SELECT id,owner_email person,category,work_date,status result,details notes,title,created_at FROM office_logs WHERE deleted=0 AND work_date=? ORDER BY created_at DESC LIMIT 40',date):await all(env,'SELECT id,owner_email person,category,work_date,status result,details notes,title,created_at FROM office_logs WHERE deleted=0 AND work_date=? AND owner_email=? ORDER BY created_at DESC LIMIT 40',date,user.email);
    const today_activity=[...todayActions.map(a=>({...a,private:false})),...todayOffice.map(a=>({...a,private:true}))].sort((a,b)=>b.created_at.localeCompare(a.created_at)).slice(0,20);
    const privateTasks=boss?[]:(await all(env,PRIVATE_WORK_SELECT+" WHERE w.deleted=0 AND w.archived=0 AND w.owner_email=? AND w.kind='Task' AND w.status<>'Completed' ORDER BY w.next_due_date,w.created_at",user.email)).map(i=>withInactivityReminder(i));
    const personal_reminders=privateTasks.filter(i=>i.inactivity_reminder||(i.recurrence_rule!=='none'&&i.next_due_date<=fmtDate()));
-   return ok({date,daily,personal_reminders,office_counts:personal,today_activity,next_actions:tasks.filter(t=>t.planning_status==='Active'&&t.workflow.owner===user.email&&t.development_status!=='Closed'),waiting_on_others:tasks.filter(t=>t.planning_status==='Active'&&t.workflow.owner&&t.workflow.owner!==user.email&&[t.assignee,t.primary_owner,t.qa_owner,t.created_by,t.pm_owner,...JSON.parse(t.collaborators_json||'[]')].includes(user.email)),needs_follow_up:tasks.filter(t=>t.follow_up&&(!t.follow_up.reason||t.follow_up.reminder_due)&&(user.groups.includes('PM')||[t.assignee,t.primary_owner,t.qa_owner,t.created_by,t.pm_owner,...JSON.parse(t.collaborators_json||'[]')].includes(user.email))),discussion_actions:await all(env,'SELECT a.*,c.body,t.title FROM discussion_actions a JOIN comments c ON c.id=a.comment_id JOIN tasks t ON t.id=a.task_id WHERE a.owner_email=? AND a.resolved=0 AND t.deleted=0 AND t.archived=0 AND t.planning_status=?',user.email,'Active'),collaborator_actions:await all(env,"SELECT c.*,t.title FROM task_collaborator_work c JOIN tasks t ON t.id=c.task_id WHERE c.email=? AND c.status='Open' AND t.planning_status='Active' AND t.deleted=0 AND t.archived=0 AND t.development_status<>'Closed' AND EXISTS(SELECT 1 FROM json_each(t.collaborators_json) WHERE value=c.email)",user.email),counts:{total:tasks.filter(t=>t.planning_status==='Active'&&t.development_status!=='Closed').length,needQa:tasks.filter(t=>t.planning_status==='Active'&&qaReady(t)&&t.qa_status!=='Passed').length,needEngineering:tasks.filter(t=>['Changes Required','Partially Passed','Need Explanation','No Visible Changes','Unable to Test'].includes(t.qa_status)).length,production:tasks.filter(t=>t.development_status==='On Production').length},attention:tasks.filter(t=>['Changes Required','Partially Passed','Need Explanation','No Visible Changes','Unable to Test'].includes(t.qa_status)||qaReady(t)&&t.qa_status!=='Passed').slice(0,15)});
+   return ok({...(url.searchParams.get('include_tasks')==='1'?{tasks}:{}),date,daily,urgent_reminders:tasks.filter(t=>t.urgency?.pending).map(dashboardTask),personal_reminders,office_counts:personal,today_activity,next_actions:tasks.filter(t=>t.planning_status==='Active'&&(t.workflow.owner===user.email||t.workflow.owners?.includes(user.email))&&t.development_status!=='Closed'),waiting_on_others:tasks.filter(t=>t.planning_status==='Active'&&t.workflow.owner&&t.workflow.owner!==user.email&&!t.workflow.owners?.includes(user.email)&&[t.assignee,t.primary_owner,t.qa_owner,t.created_by,t.pm_owner,t.pr_reviewer,...JSON.parse(t.collaborators_json||'[]')].includes(user.email)),needs_follow_up:tasks.filter(t=>t.follow_up&&(!t.follow_up.reason||t.follow_up.reminder_due)&&(user.groups.includes('PM')||[t.assignee,t.primary_owner,t.qa_owner,t.created_by,t.pm_owner,t.pr_reviewer,...JSON.parse(t.collaborators_json||'[]')].includes(user.email))),discussion_actions:await all(env,'SELECT a.*,c.body,t.title FROM discussion_actions a JOIN comments c ON c.id=a.comment_id JOIN tasks t ON t.id=a.task_id WHERE a.owner_email=? AND a.resolved=0 AND t.deleted=0 AND t.archived=0 AND t.planning_status=?',user.email,'Active'),collaborator_actions:await all(env,"SELECT c.*,t.title FROM task_collaborator_work c JOIN tasks t ON t.id=c.task_id WHERE c.email=? AND c.status='Open' AND t.planning_status='Active' AND t.deleted=0 AND t.archived=0 AND t.development_status<>'Closed' AND EXISTS(SELECT 1 FROM json_each(t.collaborators_json) WHERE value=c.email)",user.email),counts:{total:tasks.filter(t=>t.planning_status==='Active'&&t.development_status!=='Closed').length,needQa:tasks.filter(t=>t.planning_status==='Active'&&qaReady(t)&&t.qa_status!=='Passed').length,needEngineering:tasks.filter(t=>['Not Passed','Changes Required','Partially Passed','Need Explanation','No Visible Changes','Unable to Test'].includes(t.qa_status)).length,production:tasks.filter(t=>t.development_status==='On Production').length},attention:tasks.filter(t=>['Not Passed','Changes Required','Partially Passed','Need Explanation','No Visible Changes','Unable to Test'].includes(t.qa_status)||qaReady(t)&&t.qa_status!=='Passed').slice(0,15)});
  }
  if(p==='/api/attachments'&&method==='POST'){
    if(!env.BUCKET)return err('Attachment storage is not configured',503);
@@ -949,7 +1038,7 @@ function engineeringTask(t){return t.work_kind==='Engineering'||t.work_kind==='P
 function simpleTask(t){return t.work_kind&&!engineeringTask(t);}
 function pmOwnerAllowed(user,t){return isRole(user,'admin')||user.email===(t.pm_owner||t.assignee);}
 function pmWorkflowGuide(t){const stage=t.pm_stage||'Draft',review=stage==='Engineer Review';return {revision:t.workflow_revision,owner:t.archived||stage==='Completed'?'':review?t.pm_engineer:t.pm_owner||t.assignee,role:review?'Engineering':'PM',phase:t.archived?'archived':stage==='Completed'?'done':'pm',instruction:stage==='Draft'?'Record the requirement and design, then mark the design ready.':stage==='Design Ready'?'Submit the completed design to an engineer for confirmation.':review?'Confirm the requirement, or return it to PM with the details you need.':stage==='Needs Details'?'Add the requested details and submit the handoff again.':'PM work completed. Review the history below.',actions:[]};}
-function taskOwnerAllowed(user,t){return isRole(user,'admin')||t.assignee===user.email||t.primary_owner===user.email||t.pm_owner===user.email||JSON.parse(t.collaborators_json||'[]').includes(user.email);}
+function taskOwnerAllowed(user,t){return isRole(user,'admin')||t.planning_status==='Backlog'&&t.created_by===user.email||t.assignee===user.email||t.primary_owner===user.email||t.pm_owner===user.email||JSON.parse(t.collaborators_json||'[]').includes(user.email);}
 async function trackingChanges(env,t,patch,expected=t.workflow_revision){
  const keys=Object.keys(patch);const r=await run(env,`UPDATE tasks SET ${keys.map(k=>k+'=?').join(',')},updated_at=?,workflow_revision=workflow_revision+1 WHERE id=? AND workflow_revision=? AND archived=0 AND deleted=0`,...keys.map(k=>patch[k]),stamp(),t.id,expected);
  if(!(r.meta?.changes??r.changes))throw Object.assign(new Error('Task changed. Reopen it before saving.'),{status:409});
@@ -963,9 +1052,11 @@ async function effectiveActivities(env,tid){
 function plusWeek(date){if(!isDate(date))return '';const due=new Date(date+'T12:00:00Z');due.setUTCDate(due.getUTCDate()+7);return due.toISOString().slice(0,10);}
 export function currentStageDue(t){
  const phase=workflowGuide(t).phase;let date='',label='';
- if(phase==='qa'){date=t.qa_due_date||'';label='QA due';}
+ if(phase==='pr_review'){date=plusWeek(t.pr_submitted_date);label='PR review due';}
+ else if(phase==='stage_deploy'){date=plusWeek(t.pr_review_completed_date);label='Stage deployment due';}
+ else if(phase==='qa'){date=t.qa_due_date||'';label='QA due';}
  else if(phase==='production'){date=plusWeek(t.qa_completed_date);label='Production due';}
- else if(phase==='done'&&t.development_status==='On Production'){date=plusWeek(t.production_completed_date);label='Completion check due';}
+ else if(phase==='done'&&t.development_status==='On Production'){date='';label='';}
  else if(['review','development','simple'].includes(phase)){date=t.delivery_reset_required?'':t.estimated_delivery_date||'';label='Engineering due';}
  return {current_due_date:date,current_due_label:label};
 }
@@ -997,7 +1088,10 @@ async function trackedDates(env,t,changes,date){
   changes.qa_completed_date=date;
   if(changes.qa_status!=='Passed'){changes.assignee=t.primary_owner||t.assignee;changes.next_action_owner=t.primary_owner||t.assignee;changes.delivery_reset_required=1;}
  }
- if(changes.development_status==='On Production'&&t.development_status!=='On Production')changes.production_completed_date=date;
+ if(changes.development_status==='PR Submitted'&&t.development_status!=='PR Submitted'){changes.pr_submitted_date=date;changes.pr_review_completed_date='';}
+ if(changes.pr_review_merged_at)changes.pr_review_completed_date=date;
+ if(changes.development_status==='In Development')changes.pr_review_completed_date='';
+ if(changes.production_completed_date||changes.development_status==='On Production'&&t.development_status!=='On Production'){changes.production_completed_date=date;changes.completed_date=date;}
  if(changes.development_status==='Closed'){changes.planning_status='Completed';if(hasPmOrigin(t)){changes.pm_stage='Completed';changes.work_status='Completed';}}
  return changes;
 }
@@ -1142,8 +1236,8 @@ async function trackingRoutes(req,env,user,teamView){
   if(patch.estimated_delivery_date!==undefined){if(patch.estimated_delivery_date!==t.estimated_delivery_date&&workflowGuide(t).phase!=='development')return err('Set the estimate in the current Engineering step',409);if(!taskOwnerAllowed(user,t))return err('Engineering owner permission required',403);if(t.delivery_reset_required&&(!isDate(patch.estimated_delivery_date)||patch.estimated_delivery_date<fmtDate()))return err('Choose a new Engineering estimated delivery date of today or later');patch.delivery_reset_required=0;if(!t.original_delivery_date)patch.original_delivery_date=patch.estimated_delivery_date;}
   if(Object.hasOwn(d,'blocked_reason'))patch.blocked_reason=clean(d.blocked_reason,2000);
   if(Object.hasOwn(d,'work_category')){if(t.work_kind==='PM Task'&&!PM_CATEGORIES.includes(d.work_category))return err('Choose a PM work category');patch.work_category=clean(d.work_category,120);}
-  if(Object.hasOwn(d,'primary_owner')){if(!isRole(user,'admin')&&user.email!==t.primary_owner)return err('Primary Owner or Admin permission required',403);await workflowMember(env,clean(d.primary_owner,254),'Engineering');patch.primary_owner=clean(d.primary_owner,254);}
-  if(Object.hasOwn(d,'collaborators')){if(!isRole(user,'admin')&&user.email!==t.primary_owner)return err('Primary Owner or Admin permission required',403);if(!Array.isArray(d.collaborators))return err('Choose collaborators');const people=[...new Set(d.collaborators.map(x=>clean(x,254)))];for(const email of people)await workflowMember(env,email,'Engineering');patch.collaborators_json=JSON.stringify(people);}
+  if(Object.hasOwn(d,'primary_owner')){if(!isRole(user,'admin')&&user.email!==t.primary_owner&&!(t.planning_status==='Backlog'&&!t.primary_owner&&t.created_by===user.email))return err('Primary Owner or Admin permission required',403);if(clean(d.primary_owner,254)||(d.planning_status??t.planning_status)!=='Backlog')await workflowMember(env,clean(d.primary_owner,254),'Engineering');patch.primary_owner=clean(d.primary_owner,254);if(!t.assignee&&patch.primary_owner){patch.assignee=patch.primary_owner;patch.next_action_owner=patch.primary_owner;}}
+  if(Object.hasOwn(d,'collaborators')){if(!isRole(user,'admin')&&user.email!==t.primary_owner&&!(t.planning_status==='Backlog'&&!t.primary_owner&&t.created_by===user.email))return err('Primary Owner or Admin permission required',403);if(!Array.isArray(d.collaborators))return err('Choose collaborators');const people=[...new Set(d.collaborators.map(x=>clean(x,254)))];for(const email of people)await workflowMember(env,email,'Engineering');patch.collaborators_json=JSON.stringify(people);}
   if(Object.keys(patch).length){await trackingChanges(env,t,patch,d.expected_revision);await addActivity(env,tid,user.email,'Status Change',fmtDate(),'','Work tracking updated',JSON.stringify(patch),'',0);if(patch.qa_due_date!==undefined)await run(env,'UPDATE qa_rounds SET due_date=? WHERE task_id=? AND entered_at=? AND is_undone=0',patch.qa_due_date,tid,t.stage_confirmed_at);}
   return ok({success:true});
  }

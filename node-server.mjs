@@ -1,4 +1,4 @@
-/** Local test-only server. Hosted account setup requires trusted upstream identity headers. */
+/** Local test-only server. Hosted setup requires trusted upstream identity headers. */
 import { createServer } from 'node:http';
 import { readFile, mkdir, writeFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -16,7 +16,7 @@ if(oldUsersSql.includes("('boss','qa','engineer')")) {
 
 if(!db.prepare('PRAGMA table_info(tasks)').all().some(c=>c.name==='sort_order')) db.exec('ALTER TABLE tasks ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 1000');
 db.exec('CREATE TABLE IF NOT EXISTS local_migrations (name TEXT PRIMARY KEY)');
-for(const name of ['0001_password_auth.sql','0002_releases.sql','0003_release_auto_roles.sql','0004_work_structure.sql','0005_task_focus.sql','0006_activity_evidence.sql','0007_guided_workflow.sql','0008_private_evidence.sql','0009_pending_comments.sql','0010_promote_daily_task.sql','0011_private_archive.sql','0012_instructions.sql','0013_comment_work.sql','0014_comment_replies.sql','0015_user_language_switch.sql','0016_task_categories.sql','0017_completed_dates.sql','0018_user_avatars.sql','0019_future_release_plans.sql','0020_work_tracking.sql','0021_pm_handoff.sql','0022_pm_engineering_tasks.sql','0023_current_stage_dates.sql','0024_creation_work.sql']){
+for(const name of ['0001_password_auth.sql','0002_releases.sql','0003_release_auto_roles.sql','0004_work_structure.sql','0005_task_focus.sql','0006_activity_evidence.sql','0007_guided_workflow.sql','0008_private_evidence.sql','0009_pending_comments.sql','0010_promote_daily_task.sql','0011_private_archive.sql','0012_instructions.sql','0013_comment_work.sql','0014_comment_replies.sql','0015_user_language_switch.sql','0016_task_categories.sql','0017_completed_dates.sql','0018_user_avatars.sql','0019_future_release_plans.sql','0020_work_tracking.sql','0021_pm_handoff.sql','0022_pm_engineering_tasks.sql','0023_current_stage_dates.sql','0024_creation_work.sql','0025_qa_feedback_replies.sql','0026_pr_review_and_loading.sql','0027_instruction_baseline.sql','0028_qa_result_labels.sql','0029_production_completes_task.sql','0030_pre_identifier_backup.sql','0031_task_numbers_and_urgent.sql']){
  if(!db.prepare('SELECT name FROM local_migrations WHERE name=?').get(name)){
   db.exec(await readFile(resolve(base,'migrations',name),'utf8'));
   db.prepare('INSERT INTO local_migrations(name) VALUES(?)').run(name);

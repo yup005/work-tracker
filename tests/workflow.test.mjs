@@ -5,11 +5,12 @@ import {DatabaseSync} from 'node:sqlite';
 import {handle,businessDaysSince,withInactivityReminder,instructionGuides,currentStageDue,followUpState} from '../server.mjs';
 import vm from 'node:vm';
 
-function context({commentMigration=true}={}){
+function context({commentMigration=true,signalsMigration=true}={}){
  const db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../schema.sql',import.meta.url),'utf8'));
  db.exec(readFileSync(new URL('../migrations/0001_password_auth.sql',import.meta.url),'utf8'));
  db.exec(readFileSync(new URL('../migrations/0002_releases.sql',import.meta.url),'utf8'));
  const DB={prepare(query){return {bind(...args){return {first:async()=>db.prepare(query).get(...args)??null,all:async()=>({results:db.prepare(query).all(...args)}),run:async()=>db.prepare(query).run(...args),execute:()=>db.prepare(query).run(...args)};}}},async batch(statements){db.exec('BEGIN');try{const results=statements.map(statement=>statement.execute());db.exec('COMMIT');return results;}catch(error){db.exec('ROLLBACK');throw error;}}};
+ db.exec(readFileSync(new URL('../migrations/0027_instruction_baseline.sql',import.meta.url),'utf8'));
  for(const [email,name,role] of [['boss@demo.local','Boss','viewer'],['admin@demo.local','Admin','admin'],['engineer@demo.local','Engineer','member']])db.prepare('INSERT INTO users(email,display_name,role) VALUES(?,?,?)').run(email,name,role);
  db.exec("UPDATE users SET is_boss=1,groups_json='[\"Management\"]' WHERE email='boss@demo.local'; UPDATE users SET groups_json='[\"QA\"]' WHERE email='admin@demo.local'; UPDATE users SET groups_json='[\"Engineering\"]' WHERE email='engineer@demo.local';");
 db.exec(readFileSync(new URL('../migrations/0003_release_auto_roles.sql',import.meta.url),'utf8'));
@@ -34,6 +35,9 @@ const pmMigration=readFileSync(new URL('../migrations/0021_pm_handoff.sql',impor
 if(commentMigration)db.exec(readFileSync(new URL('../migrations/0022_pm_engineering_tasks.sql',import.meta.url),'utf8'));
 db.exec(readFileSync(new URL('../migrations/0023_current_stage_dates.sql',import.meta.url),'utf8'));
 db.exec(readFileSync(new URL('../migrations/0024_creation_work.sql',import.meta.url),'utf8'));
+db.exec(readFileSync(new URL('../migrations/0025_qa_feedback_replies.sql',import.meta.url),'utf8'));
+db.exec(readFileSync(new URL('../migrations/0026_pr_review_and_loading.sql',import.meta.url),'utf8'));
+if(signalsMigration)db.exec(readFileSync(new URL('../migrations/0031_task_numbers_and_urgent.sql',import.meta.url),'utf8'));
 const objects=new Map();const BUCKET={put:async(k,d)=>{objects.set(k,d)},get:async(k)=>objects.has(k)?{body:objects.get(k)}:null,delete:async(k)=>objects.delete(k)};
  const env={DB,BUCKET,DEV_AUTH:'1',ADMIN_EMAIL:'admin@demo.local'};
  async function request(path,{who='admin@demo.local',method='GET',body,mode}={}){
@@ -382,14 +386,15 @@ test('Exactly one automatic pending version persists until release, then next We
  db.close();
 });
 
-test('Member choices validate active writable users; next-step text persists',async()=>{
+test('Member choices remain validated and removed next-step overrides preserve legacy text',async()=>{
  const {db,request}=context();
- const t=(await request('/tasks',{method:'POST',body:{title:'Assigned work',assignee:'engineer@demo.local',next_action_owner:'engineer@demo.local',next_step:'Retest billing'}})).data.id;
+ const t=(await request('/tasks',{method:'POST',body:{title:'Assigned work',assignee:'engineer@demo.local'}})).data.id;
+ db.prepare("UPDATE tasks SET next_step='Retest billing' WHERE id=?").run(t);
  assert.equal((await request('/tasks/'+t)).data.task.next_step,'Retest billing');
  assert.equal((await request('/tasks/'+t,{method:'PATCH',body:{assignee:'missing@example.com'}})).status,400);
  assert.equal((await request('/tasks/'+t,{method:'PATCH',body:{next_action_owner:'boss@demo.local'}})).status,400);
- assert.equal((await request('/tasks/'+t,{who:'engineer@demo.local',method:'PATCH',body:{next_step:'Ready for Stage'}})).status,200);
- assert.equal((await request('/tasks/'+t)).data.task.next_step,'Ready for Stage');
+ assert.equal((await request('/tasks/'+t,{who:'engineer@demo.local',method:'PATCH',body:{next_step:'Ready for Stage'}})).status,400);
+ assert.equal((await request('/tasks/'+t)).data.task.next_step,'Retest billing');
  db.close();
 });
 test('Deletion requires confirmation; multi-person work and parent tasks archive and can be restored',async()=>{
@@ -492,7 +497,7 @@ test('Dashboard next actions follow confirmed Stage handoff, QA feedback and Pro
  const confirm=async(action,fields)=>assert.equal((await advance(request,tid,action,fields,action==='qa'?'admin@demo.local':'engineer@demo.local')).status,201);
  const next=async()=>{const task=(await request('/tasks/'+tid)).data.task;return (await request('/summary?date=2026-10-08',{who:task.next_action_owner||task.assignee})).data.next_actions.find(t=>t.id===tid);};
  await confirm('progress',{development_status:'Merged / Awaiting Stage'});
- assert.equal((await next()).workflow.phase,'development');assert.equal((await next()).workflow.owner,'engineer@demo.local');
+ assert.equal((await next()).workflow.phase,'stage_deploy');assert.equal((await next()).workflow.owner,'engineer@demo.local');
  await confirm('stage',{qa_owner:'admin@demo.local'});
  assert.equal((await next()).workflow.phase,'qa');assert.equal((await next()).workflow.owner,'admin@demo.local');
  await confirm('qa',{qa_status:'Changes Required',notes:'Fix the calculation'});
@@ -502,13 +507,10 @@ test('Dashboard next actions follow confirmed Stage handoff, QA feedback and Pro
  await confirm('qa',{qa_status:'Passed',notes:'Verified the fixed Stage build'});
  assert.equal((await next()).workflow.phase,'production');assert.equal((await next()).workflow.owner,'engineer@demo.local');
  await confirm('production',{});
- assert.ok((await next()).workflow.actions.includes('close'),'Production work offers a completion check');
- assert.equal((await advance(request,tid,'close',{notes:''},'admin@demo.local')).status,400);
- const closed=await advance(request,tid,'close',{notes:'Confirmed the engineer finished; reported the fix to the manager.'},'admin@demo.local');assert.equal(closed.status,201);
- const detail=(await request('/tasks/'+tid)).data;assert.equal(detail.task.assignee,'engineer@demo.local');assert.equal(detail.task.development_status,'Closed');
- const completion=detail.activities.find(a=>a.id===closed.data.id);assert.equal(completion.actor_email,'admin@demo.local');assert.equal(completion.is_work,1);assert.equal(completion.result,'Completed');
- assert.equal(await next(),undefined,'Closed work leaves the action queue');
- assert.equal((await advance(request,tid,'close',{notes:'Duplicate completion'},'admin@demo.local')).status,409);
+ assert.equal(await next(),undefined,'Production confirmation completes the task and removes the next action');
+ const detail=(await request('/tasks/'+tid)).data;assert.equal(detail.task.assignee,'engineer@demo.local');assert.equal(detail.task.development_status,'Closed');assert.deepEqual(detail.workflow.actions,[]);
+ const completion=detail.activities.find(a=>a.result==='On Production');assert.equal(completion.actor_email,'engineer@demo.local');assert.equal(completion.is_work,1);
+ const count=detail.activities.length;assert.equal((await advance(request,tid,'close',{notes:'Obsolete second completion'},'admin@demo.local')).status,200);assert.equal((await request('/tasks/'+tid)).data.activities.length,count);
 });
 
 test('Requested daily task promotion preserves dated work, images, history and owner isolation without duplicates',async()=>{
@@ -557,6 +559,7 @@ test('New comments stay highlighted until this task has work or a guided action;
  await comment('Please retest this build');
  await request('/tasks/'+tid+'/activity',{who:'engineer@demo.local',method:'POST',body:{action_type:'Development',activity_date:'2026-01-01',notes:'Checked and fixed the build'}});
  assert.deepEqual(await pending(),[],'Recording time, not backdated work date, determines acknowledgement');
+ await advance(request,tid,'pr-review',{pr_reviewer:'engineer@demo.local'});
  await advance(request,tid,'stage',{qa_owner:'admin@demo.local'});
  await comment('Is the fix visible on Stage?');
  assert.equal((await request('/tasks/'+tid+'/activity',{method:'POST',body:{action_type:'QA Testing',result:'No Visible Changes',notes:'Checked Stage; blocked'}})).status,201);
@@ -582,9 +585,10 @@ test('Guided workflow requires review and explicit Stage confirmation; QA issues
  assert.equal((await request('/tasks/'+tid,{method:'PATCH',body:{development_status:'In Development'}})).status,409,'Manual status cannot bypass engineer review');
  assert.equal((await advance(request,tid,'review',{feasibility:'Confirmed',assignee:'engineer@demo.local',estimated_delivery_date:futureDelivery(),notes:'Requirements reviewed; the fix is feasible.'})).status,201);
  assert.equal((await advance(request,tid,'progress',{development_status:'PR Submitted'})).status,201);
- assert.equal((await advance(request,tid,'progress',{development_status:'Merged / Awaiting Stage'})).status,201);
+ assert.equal((await advance(request,tid,'progress',{development_status:'Merged / Awaiting Stage'})).status,409);
+ assert.equal((await advance(request,tid,'pr-review',{pr_reviewer:'engineer@demo.local'})).status,201);
  detail=(await request('/tasks/'+tid)).data;
- assert.equal(detail.workflow.phase,'development');assert.equal(detail.task.next_action_owner,'engineer@demo.local');assert.equal(detail.task.stage_confirmed_at,'');
+ assert.equal(detail.workflow.phase,'stage_deploy');assert.equal(detail.task.next_action_owner,'engineer@demo.local');assert.equal(detail.task.stage_confirmed_at,'');
  assert.equal((await request('/tasks/'+tid+'/activity',{method:'POST',who:'qa@example.com',body:{action_type:'QA Testing',result:'Passed',notes:'Not actually on Stage'}})).status,409);
  await request('/tasks/'+tid,{who:'engineer@demo.local',method:'PATCH',body:{current_environment:'Stage'}});
  assert.equal((await request('/tasks/'+tid,{method:'PATCH',body:{qa_status:'Passed'}})).status,409,'A manual environment change never opens QA');
@@ -602,7 +606,7 @@ test('Guided workflow requires review and explicit Stage confirmation; QA issues
  const qaWork=db.prepare("SELECT * FROM activities WHERE task_id=? AND action_type='QA Testing'").all(tid);assert.equal(qaWork.length,1);assert.equal(qaWork[0].is_work,1);assert.equal(qaWork[0].environment,'Stage');
  assert.equal((await advance(request,tid,'stage',{qa_owner:'qa@example.com',notes:'Fixed the billing total and redeployed Stage.'})).status,201);
  assert.equal((await request('/tasks/'+tid)).data.task.qa_status,'Retest Required');
- assert.equal((await advance(request,tid,'qa',{qa_status:'Passed'},'qa@example.com')).status,400,'Actual QA needs test notes');
+ assert.equal((await advance(request,tid,'qa',{qa_status:'Partially Passed'},'qa@example.com')).status,400,'Unresolved QA needs issue details');
  assert.equal((await advance(request,tid,'qa',{qa_status:'Passed',notes:'Billing totals verified on the fixed Stage build.'},'qa@example.com')).status,201);
  detail=(await request('/tasks/'+tid)).data;assert.equal(detail.workflow.phase,'production');assert.equal(detail.task.next_action_owner,'engineer@demo.local');assert.equal(detail.task.qa_passed_stage_at,detail.task.stage_confirmed_at);
  assert.equal((await advance(request,tid,'production',{},'qa@example.com')).status,403);
@@ -832,7 +836,7 @@ test('Instructions start unread and acknowledgements belong to the signed-in acc
  assert.deepEqual(engineer.acknowledged,[]);assert.deepEqual(admin.acknowledged,[]);
  const gid=engineer.guides.find(g=>g.surface==='daily').id;
  assert.equal((await request('/instructions/ack',{who:'engineer@demo.local',method:'POST',body:{id:gid,email:'admin@demo.local'}})).status,200);
- assert.deepEqual((await request('/me',{who:'engineer@demo.local'})).data.instructions.acknowledged,[gid]);
+ assert.deepEqual((await request('/me',{who:'engineer@demo.local'})).data.instructions.acknowledged,[gid,'first-use-daily']);
  assert.deepEqual((await request('/me')).data.instructions.acknowledged,[]);
  const recorded=db.prepare('SELECT acknowledged_at FROM instruction_acknowledgements').get().acknowledged_at;
  assert.equal((await request('/instructions/ack',{who:'engineer@demo.local',method:'POST',body:{id:gid}})).status,200);
@@ -856,7 +860,7 @@ test('Manager can acknowledge their guides without gaining workspace write acces
  db.close();
 });
 
-test('Guides adapt to work groups and new versions remain unread',async()=>{
+test('Guides adapt to work groups while older confirmations suppress update prompts',async()=>{
  const {db,request}=context();
  const engineer=instructionGuides({role:'member',groups:['Engineering']});
  const qa=instructionGuides({role:'member',groups:['QA']});
@@ -872,7 +876,7 @@ test('Guides adapt to work groups and new versions remain unread',async()=>{
  const sandbox={document:{addEventListener(){}},console};vm.createContext(sandbox);
  vm.runInContext(code.slice(0,code.indexOf('const taskTitle=')),sandbox);
  vm.runInContext(`state.instructions=${JSON.stringify(current)}`,sandbox);
- assert.match(vm.runInContext('instructionFor("dashboard")',sandbox),/I understand/);
+ assert.equal(vm.runInContext('instructionFor("dashboard")',sandbox),'','An older acknowledgement covers the same feature after an update');
  vm.runInContext('state.instructions.acknowledged.push(...state.instructions.guides.filter(g=>g.surface==="dashboard").map(g=>g.id))',sandbox);
  assert.equal(vm.runInContext('instructionFor("dashboard")',sandbox),'');
  assert.match(vm.runInContext('instructionCard(state.instructions.guides.find(g=>g.surface==="dashboard"),true)',sandbox),/Reviewed/);
@@ -1152,7 +1156,7 @@ test('Explicit Admin role is preserved for combined groups, while team perspecti
  assert.ok(me.statuses.work_groups.includes('Management'));
  const gid=me.instructions.guides.find(g=>g.surface==='workspace').id;
  assert.equal((await request('/instructions/ack',{who,mode:'team',method:'POST',body:{id:gid}})).status,200);
- assert.deepEqual((await request('/me',{who})).data.instructions.acknowledged,[gid]);
+ assert.deepEqual((await request('/me',{who})).data.instructions.acknowledged,[gid,'first-use-workspace']);
  assert.deepEqual((await request('/me',{who:'boss@demo.local'})).data.instructions.acknowledged,[]);
  db.close();
 });
@@ -1171,10 +1175,10 @@ test('Combined-group UI scopes guides and capabilities to the selected perspecti
   assert.equal(vm.runInContext('canDev()',sandbox),group==='Engineering');
   assert.equal(vm.runInContext('canQA()',sandbox),group==='QA');
   assert.equal(vm.runInContext('canManage()',sandbox),false);
-  assert.match(vm.runInContext('instructionFor("private-task")',sandbox),/Continue a task/);
+  assert.match(vm.runInContext('instructionFor("private-task")',sandbox),/Opening a task shows its Overview/);
   vm.runInContext("state.workspaceMode='team'",sandbox);
   assert.equal(vm.runInContext('instructionFor("private-task")',sandbox),'');
-  assert.match(vm.runInContext('instructionFor("dashboard")',sandbox),/Your Manager overview/);
+  assert.match(vm.runInContext('instructionFor("dashboard")',sandbox),/QA starts only after the Stage handoff/);
   assert.equal(vm.runInContext('canWrite()',sandbox),false);
   assert.equal(vm.runInContext('canDev()',sandbox),false);
   assert.equal(vm.runInContext('canQA()',sandbox),false);
@@ -1321,7 +1325,7 @@ test('Opening a private task immediately renders its separate Overview and activ
 
 test('Board stage tabs combine with search and existing filters, and Clear all preserves sorting and archive scope',()=>{
  const code=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
- const tasks=[{id:'dev',title:'Report design',category:'Reports',development_status:'In Development',qa_status:'Not Tested',workflow:{phase:'development'}},{id:'qa',title:'Report test',category:'Reports',development_status:'On Stage',qa_status:'Retest Required',workflow:{phase:'qa'}},{id:'waiting',title:'Report not on Stage',category:'Reports',development_status:'Merged / Awaiting Stage',qa_status:'Not Tested',workflow:{phase:'development'}},{id:'prod',title:'Billing fix',category:'Billing',development_status:'On Production',qa_status:'Passed',workflow:{phase:'done'}}];
+ const tasks=[{id:'dev',title:'Report design',category:'Reports',development_status:'In Development',qa_status:'Not Tested',workflow:{phase:'development'}},{id:'qa',title:'Report test',category:'Reports',development_status:'On Stage',qa_status:'Retest Required',workflow:{phase:'qa'}},{id:'waiting',title:'Report not on Stage',category:'Reports',development_status:'Merged / Awaiting Stage',qa_status:'Not Tested',workflow:{phase:'stage_deploy'}},{id:'prod',title:'Billing fix',category:'Billing',development_status:'On Production',qa_status:'Passed',workflow:{phase:'done'}}];
  const state={tasks,filter:'Report',categoryFilter:'Reports',devFilter:'all',qaFilter:'all',boardPhase:'qa',boardSort:'manual',boardScope:'archived'};
  const sandbox={state,e:x=>String(x??''),who:x=>x};vm.createContext(sandbox);vm.runInContext(code.slice(code.indexOf('const boardFilterFields='),code.indexOf('function renderBoard(){')),sandbox);
  assert.deepEqual(Array.from(sandbox.filterBoardTasks(tasks),t=>t.id),['qa']);assert.equal(sandbox.filterBoardTasks(tasks,{ignorePhase:true}).length,3);
@@ -1428,7 +1432,7 @@ test('Engineering ownership views distinguish involvement, current action and pu
  const state={user:{email:me},tasks,archivedTasks:[make('stored',{archived:1}),make('stored-finished',{archived:1,development_status:'Closed'})],filter:'',categoryFilter:'all',devFilter:'all',qaFilter:'all',boardPhase:'all',boardPeople:'all',boardScope:'active',boardSort:'recent'};
  const sandbox={state,who:x=>x,e:x=>x};vm.createContext(sandbox);vm.runInContext(code.slice(code.indexOf('const boardFilterFields='),code.indexOf('function renderBoardFilters(')),sandbox);
  const ids=()=>Array.from(sandbox.filterBoardTasks(sandbox.boardScopeTasks()),t=>t.id);
- assert.deepEqual(ids(),['engineering','qa','request','public','other','production']);state.boardPeople='related';assert.deepEqual(ids(),['engineering','qa','request','production']);state.boardPeople='action';assert.deepEqual(ids(),['qa','production'],'Assigned engineering work waits for QA when QA owns the current action');state.boardPeople='unassigned';assert.deepEqual(ids(),['public']);
+ assert.deepEqual(ids(),['engineering','qa','request','public','other','production']);state.boardPeople='action';assert.deepEqual(ids(),['qa','production'],'Assigned engineering work waits for QA when QA owns the current action');state.boardPeople='unassigned';assert.deepEqual(ids(),['public']);
  state.boardPeople='action';state.boardPhase='qa';assert.deepEqual(ids(),['qa']);state.filter='production';assert.deepEqual(ids(),[]);sandbox.clearBoardFilters('all');assert.equal(state.boardPeople,'all');assert.equal(state.boardSort,'recent');
  state.boardScope='completed';assert.deepEqual(ids(),['finished']);state.boardScope='archived';assert.deepEqual(ids(),['stored','stored-finished']);assert.equal(state.archivedTasks[0].development_status,'In Development','Archiving does not mark unfinished work complete');assert.equal(state.archivedTasks[1].development_status,'Closed','Archive retains completion');
 });
@@ -1486,9 +1490,9 @@ test('New activity menus omit completed tasks while historical editing retains o
 
 test('Engineering completion date is independent metadata and preserves the recorded work day and pending comments',async()=>{
  const {db,request}=context();const tid=(await request('/tasks',{method:'POST',body:{title:'Finish verified work'}})).data.id;reviewed(db,tid,true);await request('/tasks/'+tid,{who:'engineer@demo.local',method:'PATCH',body:{development_status:'On Production',activity_date:'2026-10-12'}});
- assert.equal((await advance(request,tid,'close',{notes:'Verified the delivered change',completed_date:'2026-10-09'},'engineer@demo.local')).status,201);let d=(await request('/tasks/'+tid)).data;assert.equal(d.task.completed_date,'2026-10-09');assert.equal(d.task.development_status,'Closed');const workDays=d.activities.map(a=>a.activity_date);
+ assert.equal((await request('/tasks/'+tid,{who:'engineer@demo.local',method:'PATCH',body:{completed_date:'2026-10-09'}})).status,200);let d=(await request('/tasks/'+tid)).data;assert.equal(d.task.completed_date,'2026-10-09');assert.equal(d.task.development_status,'Closed');const workDays=d.activities.map(a=>a.activity_date);
  const cid=(await request('/tasks/'+tid+'/comments',{method:'POST',body:{body:'Follow-up discussion'}})).data.id;const workCount=db.prepare('SELECT count(*) n FROM activities WHERE task_id=? AND is_work=1').get(tid).n;
- assert.equal((await request('/tasks/'+tid,{who:'engineer@demo.local',method:'PATCH',body:{completed_date:'2026-10-10'}})).status,200);d=(await request('/tasks/'+tid)).data;assert.equal(d.task.completed_date,'2026-10-10');assert.equal(db.prepare('SELECT count(*) n FROM activities WHERE task_id=? AND is_work=1').get(tid).n,workCount);assert.ok(d.comments.find(c=>c.id===cid).pending_action);assert.deepEqual(d.activities.filter(a=>a.result==='Completed').map(a=>a.activity_date),[workDays[0]]);
+ assert.equal((await request('/tasks/'+tid,{who:'engineer@demo.local',method:'PATCH',body:{completed_date:'2026-10-10'}})).status,200);d=(await request('/tasks/'+tid)).data;assert.equal(d.task.completed_date,'2026-10-10');assert.equal(db.prepare('SELECT count(*) n FROM activities WHERE task_id=? AND is_work=1').get(tid).n,workCount);assert.ok(d.comments.find(c=>c.id===cid).pending_action);assert.deepEqual(d.activities.filter(a=>a.result.includes('On Production')).map(a=>a.activity_date),['2026-10-12']);
  const active=(await request('/tasks',{method:'POST',body:{title:'Still pending'}})).data.id;assert.equal((await request('/tasks/'+active,{method:'PATCH',body:{completed_date:'2026-10-10'}})).status,409);db.close();
 });
 
@@ -1513,7 +1517,7 @@ test('My account Change password opens and submits the self-change form, while A
  const nodes={'#modal-content':{classList:{remove(){}}},'#modal-shade':{classList:{remove(){}}},'#account-change-password':{},'#account-sign-out':{},'#account-remove-avatar':{},'#member-password-form':{},'#password-error':{dataset:{}},'#current-password':{value:'old fixture password'},'#member-password':{value:'new fixture password'},'#confirm-password':{value:'new fixture password'},'#login-email':{value:''}};
  const sandbox={state:{user:{email:'me@example.com',display_name:'Me'},users:[{email:'member@example.com',has_password:1}]},avatarSaving:false,avatarHtml:()=>'<span>Me</span>',e:x=>String(x??''),ui:x=>x,instructionFor:()=>'',systemText:(node,text)=>node.textContent=text,$:id=>nodes[id],closeModal(){},showLogin:async()=>signedOut++,showToast(){},reload:async()=>{},api:async(path,opts)=>{writes.push({path,body:JSON.parse(opts.body)});return {};}};vm.createContext(sandbox);
  vm.runInContext(code.slice(code.indexOf('function passwordModal('),code.indexOf("$('#change-password').onclick")),sandbox);
- vm.runInContext(code.slice(code.indexOf('function accountMenu(){'),code.indexOf("document.addEventListener('click',ev=>{if(ev.target.closest('[data-avatar-upload]'))")),sandbox);
+ vm.runInContext(code.slice(code.indexOf('function accountMenu(){'),code.indexOf("document.addEventListener('change',ev=>{if(ev.target.id==='account-avatar-file')")),sandbox);
  sandbox.accountMenu();nodes['#account-change-password'].onclick();assert.match(nodes['#modal-content'].innerHTML,/<h2>Change password/);assert.match(nodes['#modal-content'].innerHTML,/id="current-password"/);assert.match(nodes['#modal-content'].innerHTML,/id="confirm-password"/);assert.equal(typeof nodes['#member-password-form'].onsubmit,'function');
  const button={disabled:false};await nodes['#member-password-form'].onsubmit({preventDefault(){},target:{querySelector:()=>button}});assert.equal(writes.length,1);assert.equal(writes[0].path,'/password');assert.equal(writes[0].body.current_password,'old fixture password');assert.equal(writes[0].body.password,'new fixture password');assert.equal(signedOut,1);assert.equal(nodes['#login-email'].value,'me@example.com');
  sandbox.passwordModal('member@example.com');assert.match(nodes['#modal-content'].innerHTML,/<h2>Reset password/);assert.ok(!nodes['#modal-content'].innerHTML.includes('id="current-password"'));sandbox.state.users[0].has_password=0;sandbox.passwordModal('member@example.com');assert.match(nodes['#modal-content'].innerHTML,/<h2>Set password/);
@@ -1542,7 +1546,9 @@ test('Avatar updates refresh photo elements without rerendering or discarding an
  await sandbox.saveAccountAvatar(null,true);assert.equal(sandbox.state.user.avatar_id,'');assert.equal(remove.hidden,true);assert.equal(draft.value,'Unsaved task notes');assert.equal(updates,2);
 });
 
-test('Multiple future plans preserve their notes and reservations alongside one automatic current version',async()=>{
+test('Multiple future plans preserve their notes and reservations alongside one automatic current version',async(t)=>{
+ // This fixture exercises the release window containing its October 9 delivery.
+ t.mock.timers.enable({apis:['Date'],now:Date.UTC(2026,9,13,19)});
  const {db,request}=context(),current=(await request('/releases/ensure',{method:'POST'})).data.release;
  const november=(await request('/releases',{who:'engineer@demo.local',method:'POST',body:{version:'November updates',planned_date:'2026-11-11',notes:'Improve search'}})).data.id;
  assert.equal((await request('/releases',{who:'engineer@demo.local',method:'POST',body:{version:'December updates',planned_date:'2026-12-09',notes:'Year-end fixes'}})).status,201);
@@ -1818,7 +1824,7 @@ test('PM design handoff and clarification continue the same task into the existi
  assert.equal((await advance(request,tid,'stage',{qa_owner:'admin@demo.local'},'engineer@demo.local')).status,201);
  assert.equal((await advance(request,tid,'qa',{qa_status:'Passed',notes:'Verified report totals'},'admin@demo.local')).status,201);
  assert.equal((await advance(request,tid,'production',{},'engineer@demo.local')).status,201);
- assert.equal((await advance(request,tid,'close',{notes:'Production confirmed',completed_date:'2026-10-12'},'engineer@demo.local')).status,201);
+ assert.equal((await advance(request,tid,'close',{notes:'Obsolete completion'},'engineer@demo.local')).status,200);
  d=(await request('/tasks/'+tid)).data;assert.equal(d.task.pm_stage,'Completed');assert.equal(d.task.work_status,'Completed');assert.equal(d.task.development_status,'Closed');assert.ok(d.pm_handoffs.length>=9);assert.equal(d.qa_rounds.length,1);db.close();
 });
 
@@ -1940,7 +1946,7 @@ test('Current-stage deadlines replace the Engineering estimate through QA, Produ
  assert.equal((await advance(request,tid,'qa',{qa_status:'Passed',notes:'Validated the delivered Stage build',activity_date:'2026-10-13'},'admin@demo.local')).status,201);
  d=(await request('/tasks/'+tid)).data;assert.equal(d.workflow.phase,'production');assert.equal(d.task.current_due_date,'2026-10-20');assert.equal(d.task.current_due_label,'Production due');
  assert.equal((await advance(request,tid,'production',{notes:'Production verified',activity_date:'2026-10-14'})).status,201);
- d=(await request('/tasks/'+tid)).data;assert.equal(d.task.production_completed_date,'2026-10-14');assert.equal(d.task.current_due_date,'2026-10-21');assert.equal(d.task.current_due_label,'Completion check due');
+ d=(await request('/tasks/'+tid)).data;assert.equal(d.task.production_completed_date,'2026-10-14');assert.equal(d.task.current_due_date,'');assert.equal(d.task.current_due_label,'');assert.equal(d.task.completed_date,'2026-10-14');
  assert.equal((await request('/tasks/'+tid+'/undo-stage',{method:'POST',who:'engineer@demo.local',body:{confirm:true,reason:'Deployment confirmation was premature',expected_revision:d.task.workflow_revision}})).status,200);
  d=(await request('/tasks/'+tid)).data;assert.equal(d.workflow.phase,'production');assert.equal(d.task.production_completed_date,'');assert.equal(d.task.current_due_date,'2026-10-20');
  await advance(request,tid,'production',{notes:'Verified again',activity_date:'2026-10-14'});await advance(request,tid,'close',{notes:'Completion confirmed',completed_date:'2026-10-15'});
@@ -1964,19 +1970,19 @@ test('QA return removes the stale deadline and the original workflow sets the ne
 test('Stage deadline calculations handle month/year boundaries and preserve unknown historical dates',()=>{
  const base={work_kind:'Engineering',planning_status:'Active',feasibility:'Confirmed',development_status:'On Stage',stage_confirmed_at:'build',qa_status:'Passed',qa_passed_stage_at:'build',estimated_delivery_date:'2020-01-01'};
  assert.equal(currentStageDue({...base,qa_completed_date:'2026-12-28'}).current_due_date,'2027-01-04');assert.equal(currentStageDue(base).current_due_date,'');
- assert.equal(currentStageDue({...base,development_status:'On Production',production_completed_date:'2028-02-26'}).current_due_date,'2028-03-04');
+ assert.equal(currentStageDue({...base,development_status:'On Production',production_completed_date:'2028-02-26'}).current_due_date,'');
  assert.equal(currentStageDue({...base,planning_status:'Backlog'}).current_due_date,'');
 });
 
 test('Engineering detail hierarchy uses the original Next Step, exposes prior results and collapses supplemental settings',()=>{
  const code=readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),body=code.slice(code.indexOf('function renderDetail('),code.indexOf('function changeTab('));
- const order=['${workflowCard(d,writable)}','${previousStageCard(d)}','task-description-block','task-evidence','task-settings','${trackingOverview(d,writable)}'];for(let i=1;i<order.length;i++)assert.ok(body.indexOf(order[i])>body.indexOf(order[i-1]),order[i]);
+ const order=['task-description-block','task-evidence','${workflowCard(d,writable)}','${previousStageCard(d)}','task-settings','${trackingOverview(d,writable)}'];for(let i=1;i<order.length;i++)assert.ok(body.indexOf(order[i])>body.indexOf(order[i-1]),order[i]);
  assert.match(body,/<details class="task-secondary task-settings">/);assert.ok(!body.includes('latest-feedback'));assert.ok(body.includes('task-manage'));
  const sandbox={document:{addEventListener(){},querySelectorAll:()=>[]},console};vm.createContext(sandbox);vm.runInContext(code.slice(0,code.indexOf('const taskTitle=')),sandbox);
- sandbox.attachmentTiles=files=>files.map(f=>f.filename).join(' ');vm.runInContext(code.slice(code.indexOf('function previousStageCard('),code.indexOf('function renderDetail(')),sandbox);
+ sandbox.canUndoPreviousStage=()=>false;sandbox.attachmentTiles=files=>files.map(f=>f.filename).join(' ');vm.runInContext(code.slice(code.indexOf('function previousStageSnapshot('),code.indexOf('function renderDetail(')),sandbox);
  const d={task:{qa_status:'Passed'},workflow:{phase:'production'},stage_changes:[],activities:[{id:'undone',result:'Failed',action_type:'QA Testing',excluded:1,acknowledges_comments:1},{id:'real',result:'Passed',notes:'Verified the report totals',action_type:'QA Testing',acknowledges_comments:1,activity_date:'2026-10-13',actor_email:'qa@example.com'}],attachments:[{activity_id:'real',filename:'QA evidence.png'},{activity_id:'undone',filename:'Old evidence.png'}]};
  const html=sandbox.previousStageCard(d);assert.match(html,/PREVIOUS STAGE.*QA/);assert.match(html,/Verified the report totals/);assert.match(html,/QA evidence.png/);assert.ok(!html.includes('Old evidence.png'));
- const guides=instructionGuides({role:'member',groups:['Engineering']});assert.ok(guides.find(g=>g.surface==='engineering-task').id.endsWith('-v11'));assert.ok(guides.find(g=>g.surface==='engineering-task').steps.some(x=>x.includes('new Engineering estimated')));
+ const guides=instructionGuides({role:'member',groups:['Engineering']});assert.ok(guides.find(g=>g.surface==='engineering-task').id.endsWith('-v12'));assert.ok(guides.find(g=>g.surface==='engineering-task').steps.some(x=>x.includes('new Engineering estimated')));
 });
 
 
@@ -2057,4 +2063,426 @@ test('Closed panels and rendered defaults cannot trigger the task discard guard,
  vm.runInContext("state.detail='old-task';state.trackingDirty=false;state.detailData={task:{parent_task_id:'archived-parent'}}",sandbox);assert.equal(sandbox.hasDirtyTask(),true,'An open workflow edit needs confirmation');fields[0].value=fields[0].dataset.start;assert.equal(sandbox.hasDirtyTask(),false,'An automatic display fallback is not an edit');
  metadata[0].value='new-parent';assert.equal(sandbox.hasDirtyTask(),true);metadata[0].disabled=true;fields[0].disabled=true;fields[0].value='2026-10-20';assert.equal(sandbox.hasDirtyTask(),false);
  metadata[0].disabled=false;metadata[0].value='';nodes['#activity-notes'].value='Unsaved investigation';assert.equal(sandbox.hasDirtyTask(),true);vm.runInContext('state.detail=null',sandbox);assert.equal(sandbox.hasDirtyTask(),false,'Opening a successfully created task must not inspect the closed task');
+});
+
+test('Stage colors follow real QA return, retest, delivery and completion without letting old QA feedback win',async()=>{
+ const {db,request}=context(),code=readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),sandbox={};vm.createContext(sandbox);vm.runInContext(code.slice(code.indexOf('function taskStageTone('),code.indexOf('const activeTaskDue=')),sandbox);
+ const tid=(await request('/tasks',{method:'POST',body:{title:'Stage color progression',assignee:'engineer@demo.local'}})).data.id;
+ const tone=async()=>{const d=(await request('/tasks/'+tid)).data;return sandbox.taskStageTone(d.task,d.workflow)};
+ assert.equal(await tone(),'waiting');reviewed(db,tid);assert.equal(await tone(),'development');
+ assert.equal((await advance(request,tid,'progress',{development_status:'PR Submitted',notes:'PR is ready'},'engineer@demo.local')).status,201);assert.equal(await tone(),'pr');
+ await advance(request,tid,'pr-review',{pr_reviewer:'engineer@demo.local'},'engineer@demo.local');
+ await advance(request,tid,'stage',{qa_owner:'admin@demo.local'},'engineer@demo.local');assert.equal(await tone(),'qa');
+ await advance(request,tid,'qa',{qa_status:'Changes Required',notes:'Fix the totals'},'admin@demo.local');assert.equal(await tone(),'changes');
+ await advance(request,tid,'stage',{qa_owner:'admin@demo.local',estimated_delivery_date:'2099-12-31'},'engineer@demo.local');assert.equal(await tone(),'qa');
+ await advance(request,tid,'qa',{qa_status:'Passed',notes:'Retest passed'},'admin@demo.local');assert.equal(await tone(),'production');
+ await advance(request,tid,'production',{notes:'Production verified'},'engineer@demo.local');assert.equal(await tone(),'completed');
+ await advance(request,tid,'close',{notes:'Finished verification'},'engineer@demo.local');assert.equal(await tone(),'completed');
+ assert.equal(sandbox.taskStageTone({archived:1,development_status:'Closed'},{phase:'archived'}),'waiting');db.close();
+});
+
+test('Engineering can discuss failed QA with linked replies and evidence while the recorded result and workflow remain unchanged',async()=>{
+ const {db,request}=context(),tid=(await request('/tasks',{method:'POST',body:{title:'Discuss QA feedback',assignee:'engineer@demo.local'}})).data.id;reviewed(db,tid);
+ await advance(request,tid,'stage',{qa_owner:'admin@demo.local'});await advance(request,tid,'qa',{qa_status:'Partially Passed',notes:'The restriction must apply to each issued reward.'},'admin@demo.local');
+ const before=(await request('/tasks/'+tid)).data,qa=before.activities.find(a=>a.action_type==='QA Testing'),original=db.prepare('SELECT * FROM activities WHERE id=?').get(qa.id);
+ const r=await request('/tasks/'+tid+'/comments',{who:'engineer@demo.local',method:'POST',body:{body:'Does the restriction also apply to previously issued rewards?',reply_to_activity:qa.id,action_owners:['admin@demo.local']}});assert.equal(r.status,201);
+ let d=(await request('/tasks/'+tid)).data;assert.equal(d.comments[0].reply_to_activity,qa.id);assert.equal(d.comments[0].reply_to,null);for(const key of ['development_status','qa_status','workflow_revision','qa_due_date','estimated_delivery_date','stage_confirmed_at'])assert.equal(d.task[key],before.task[key],key);assert.deepEqual(db.prepare('SELECT * FROM activities WHERE id=?').get(qa.id),original);
+ const response=await request('/tasks/'+tid+'/comments',{method:'POST',body:{body:'Apply it to new reward issuances; retain the previous history.',reply_to:r.data.id}});assert.equal(response.status,201);d=(await request('/tasks/'+tid)).data;assert.equal(d.comments[1].reply_to_activity,qa.id);assert.equal(d.comments[1].reply_to,r.data.id);assert.equal(db.prepare('SELECT resolved FROM discussion_actions WHERE comment_id=?').get(r.data.id).resolved,1);
+ const form=new FormData();form.append('task_id',tid);form.append('comment_id',r.data.id);form.append('file',new File(['evidence'],'reward-notes.txt',{type:'text/plain'}));assert.equal((await request('/attachments',{who:'engineer@demo.local',method:'POST',body:form})).status,201);assert.equal((await request('/tasks/'+tid)).data.attachments[0].comment_id,r.data.id);
+ assert.equal((await request('/tasks/'+tid+'/comments',{who:'boss@demo.local',method:'POST',body:{body:'Manager cannot post',reply_to_activity:qa.id}})).status,403);
+ await request('/tasks/'+tid+'/archive',{method:'POST',body:{confirm:true}});assert.equal((await request('/tasks/'+tid+'/comments',{who:'engineer@demo.local',method:'POST',body:{body:'Archived task',reply_to_activity:qa.id}})).status,409);db.close();
+});
+
+test('QA reply links reject other tasks and non-QA activity and cannot switch a thread to different feedback',async()=>{
+ const {db,request}=context(),tid=(await request('/tasks',{method:'POST',body:{title:'Valid QA discussion'}})).data.id,other=(await request('/tasks',{method:'POST',body:{title:'Other task'}})).data.id;reviewed(db,tid);reviewed(db,other);
+ for(const id of [tid,other]){await advance(request,id,'stage',{qa_owner:'admin@demo.local'});await advance(request,id,'qa',{qa_status:'Changes Required',notes:'Needs a fix'},'admin@demo.local');}
+ const d=(await request('/tasks/'+tid)).data,qa=d.activities.find(a=>a.action_type==='QA Testing'),foreign=(await request('/tasks/'+other)).data.activities.find(a=>a.action_type==='QA Testing'),notQa=d.activities.find(a=>a.action_type!=='QA Testing');
+ const before=db.prepare('SELECT count(*) n FROM comments').get().n;
+ for(const activity of [foreign.id,notQa.id,'00000000-0000-0000-0000-000000000000'])assert.equal((await request('/tasks/'+tid+'/comments',{who:'engineer@demo.local',method:'POST',body:{body:'Invalid link',reply_to_activity:activity}})).status,400);assert.equal(db.prepare('SELECT count(*) n FROM comments').get().n,before);
+ const root=(await request('/tasks/'+tid+'/comments',{who:'engineer@demo.local',method:'POST',body:{body:'Valid question',reply_to_activity:qa.id}})).data.id;
+ assert.equal((await request('/tasks/'+tid+'/comments',{method:'POST',body:{body:'Wrong thread',reply_to:root,reply_to_activity:foreign.id}})).status,400);
+ const guide=instructionGuides({role:'member',email:'engineer@demo.local',groups:['Engineering']}).find(g=>g.id==='qa-feedback-replies-engineering-v1');assert.ok(guide);assert.ok(guide.steps.some(s=>s.includes('Post reply')));
+ assert.equal((await request('/instructions/ack',{who:'engineer@demo.local',method:'POST',body:{id:guide.id}})).status,200);
+ const qaGuides=(await request('/me',{who:'admin@demo.local'})).data.instructions;assert.ok(qaGuides.guides.some(g=>g.id==='qa-feedback-replies-qa-v1'));assert.ok(!qaGuides.acknowledged.includes('qa-feedback-replies-qa-v1'));
+ const managerGuide=instructionGuides({role:'member',email:'boss@demo.local',groups:['Management']}).find(g=>g.id==='qa-feedback-replies-manager-v1');assert.ok(managerGuide);assert.ok(!managerGuide.steps.some(s=>s.includes('Post reply')));db.close();
+});
+
+test('PR reviewer and engineer owner share review and deployment; proxy confirmation is audited and QA waits for Stage',async()=>{
+ const {db,request}=context();await request('/users',{method:'POST',body:{email:'reviewer@example.com',display_name:'Reviewer',role:'member',groups:['Engineering']}});
+ const tid=(await request('/tasks',{who:'engineer@demo.local',method:'POST',body:{title:'PR reviewer handoff',assignee:'engineer@demo.local'}})).data.id;reviewed(db,tid);
+ await advance(request,tid,'progress',{development_status:'PR Submitted'},'engineer@demo.local');let d=(await request('/tasks/'+tid)).data;assert.equal(d.workflow.phase,'pr_review');
+ assert.equal((await advance(request,tid,'stage',{qa_owner:'admin@demo.local'},'engineer@demo.local')).status,409);assert.equal((await advance(request,tid,'assign-pr-reviewer',{pr_reviewer:'admin@demo.local'},'engineer@demo.local')).status,400);
+ assert.equal((await advance(request,tid,'assign-pr-reviewer',{pr_reviewer:'reviewer@example.com'},'engineer@demo.local')).status,201);d=(await request('/tasks/'+tid)).data;assert.equal(d.workflow.owner,'reviewer@example.com');assert.deepEqual(d.workflow.owners,['reviewer@example.com','engineer@demo.local']);
+ for(const person of d.workflow.owners)assert.ok((await request('/summary?date=2026-10-13',{who:person})).data.next_actions.some(t=>t.id===tid));
+ assert.equal((await advance(request,tid,'pr-review',{pr_reviewer:'reviewer@example.com',notes:'Reviewer reviewed and merged externally.'},'engineer@demo.local')).status,201);d=(await request('/tasks/'+tid)).data;assert.equal(d.workflow.phase,'stage_deploy');assert.equal(d.task.current_due_label,'Stage deployment due');const reviewDue=new Date(d.task.pr_review_completed_date+'T12:00:00Z');reviewDue.setUTCDate(reviewDue.getUTCDate()+7);assert.equal(d.task.current_due_date,reviewDue.toISOString().slice(0,10));assert.equal(d.task.pr_review_confirmed_by,'engineer@demo.local');assert.equal(d.task.pr_reviewer,'reviewer@example.com');assert.ok(d.task.pr_review_merged_at);assert.equal(d.task.stage_confirmed_at,'');
+ assert.equal((await request('/tasks/'+tid+'/undo-stage',{who:'engineer@demo.local',method:'POST',body:{confirm:true,reason:'Mistaken merge confirmation',expected_revision:d.task.workflow_revision}})).status,200);d=(await request('/tasks/'+tid)).data;assert.equal(d.workflow.phase,'pr_review');assert.equal(d.task.pr_review_merged_at,'');assert.equal(d.task.pr_reviewer,'reviewer@example.com');
+ await advance(request,tid,'pr-review',{pr_reviewer:'reviewer@example.com'},'reviewer@example.com');assert.equal((await advance(request,tid,'stage',{qa_owner:'admin@demo.local'},'reviewer@example.com')).status,201);d=(await request('/tasks/'+tid)).data;assert.equal(d.workflow.phase,'qa');assert.equal(d.workflow.owner,'admin@demo.local');assert.equal(d.task.pr_review_confirmed_by,'reviewer@example.com');assert.ok(d.task.stage_confirmed_at);db.close();
+});
+
+test('Unassigned Engineering Backlog stays separate and its creator can assign an owner before activation',async()=>{
+ const {db,request}=context(),tid=(await request('/tasks',{who:'engineer@demo.local',method:'POST',body:{title:'Backlog idea',planning_status:'Backlog',assignee:''}})).data.id;
+ let d=(await request('/tasks/'+tid)).data;assert.equal(d.task.assignee,'');assert.equal(d.workflow.phase,'planning');assert.ok(!(await request('/summary?date=2026-10-13',{who:'engineer@demo.local'})).data.next_actions.some(t=>t.id===tid));
+ assert.equal((await request('/tasks/'+tid+'/tracking',{who:'engineer@demo.local',method:'PATCH',body:{planning_status:'Backlog',primary_owner:''}})).status,200);
+ const code=readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),sandbox={state:{boardScope:'active',planningFilter:'all',filter:'',boardPeople:'all'},e:x=>String(x),ui:x=>x,renderBoardGroup:items=>items.map(t=>t.title).join('|')};vm.createContext(sandbox);vm.runInContext(code.slice(code.indexOf('function renderBoardSections('),code.indexOf('function boardPhaseBadge(')),sandbox);const html=sandbox.renderBoardSections([{title:'Active work',planning_status:'Active'},{title:'Backlog idea',planning_status:'Backlog'}],[]);assert.ok(html.indexOf('Active work')<html.indexOf('<details'));assert.match(html,/Backlog/);assert.match(html,/Backlog idea/);
+ assert.equal((await request('/tasks/'+tid+'/tracking',{who:'engineer@demo.local',method:'PATCH',body:{planning_status:'Active',primary_owner:'engineer@demo.local'}})).status,200);d=(await request('/tasks/'+tid)).data;assert.equal(d.task.assignee,'engineer@demo.local');assert.equal(d.workflow.owner,'engineer@demo.local');assert.equal(d.workflow.phase,'review');db.close();
+});
+
+test('Chinese composition cannot redraw the search or trigger Enter actions before the candidate is committed',()=>{
+ const code=readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),listeners={},timers=new Map();let serial=0,renders=0;const field={id:'task-search',value:'输',selectionStart:1,focus(){},setSelectionRange(){}};
+ const sandbox={document:{addEventListener:(type,fn)=>{(listeners[type]??=[]).push(fn)},querySelector:()=>field},console,setTimeout:fn=>{const id=++serial;timers.set(id,fn);return id},clearTimeout:id=>timers.delete(id),render:()=>renders++,structuredClone,FormData};vm.createContext(sandbox);vm.runInContext(code.slice(0,code.indexOf('const taskTitle=')),sandbox);vm.runInContext('let filterTimer;',sandbox);vm.runInContext(code.slice(code.indexOf('function handleFilterInput('),code.indexOf("$('#panel-shade').addEventListener",code.indexOf('function handleFilterInput('))),sandbox);
+ listeners.compositionstart[0]({target:field});listeners.input[0]({target:field,isComposing:true});for(const fn of timers.values())fn();assert.equal(renders,0);assert.equal(timers.size,0);
+ let stopped=false;listeners.keydown.at(-1)({target:field,key:'Enter',isComposing:true,stopImmediatePropagation:()=>stopped=true});assert.ok(stopped);
+ field.value='输入中文';field.selectionStart=4;listeners.compositionend[0]({target:field});assert.equal(timers.size,1);for(const fn of timers.values())fn();assert.equal(renders,1);assert.equal(vm.runInContext('state.filter',sandbox),'输入中文');
+ vm.runInContext('deferredRender=true',sandbox);field.id='comment-body';field.value='补充中文说明';listeners.compositionstart[0]({target:field});listeners.compositionend[0]({target:field});assert.equal(renders,1);assert.equal(field.value,'补充中文说明');
+});
+
+test('Read caching deduplicates requests, retains independent copies and is isolated by account and workspace; writes invalidate it',async()=>{
+ const code=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');let calls=0;
+ const sandbox={document:{addEventListener(){},querySelector:()=>({value:'engineer@demo.local'})},console,structuredClone,FormData,fetch:async()=>{calls++;return {ok:true,headers:{get:()=> 'application/json'},json:async()=>({items:[{title:'Original',request:calls}]})}}};vm.createContext(sandbox);vm.runInContext(code.slice(0,code.indexOf('const taskTitle=')),sandbox);vm.runInContext("state.user={email:'engineer@demo.local',role:'member',groups:['Engineering']};",sandbox);
+ const first=await vm.runInContext("Promise.all([api('/private-work'),api('/private-work')])",sandbox);assert.equal(calls,1);first[0].items[0].title='Changed by UI';const cached=await vm.runInContext("api('/private-work')",sandbox);assert.equal(cached.items[0].title,'Original');assert.equal(calls,1);
+ vm.runInContext("state.workspaceMode='team';",sandbox);await vm.runInContext("api('/private-work')",sandbox);assert.equal(calls,2);
+ vm.runInContext("state.user.email='other@example.com';",sandbox);await vm.runInContext("api('/private-work')",sandbox);assert.equal(calls,3);
+ await vm.runInContext("api('/tasks/test',{method:'POST',body:'{}'})",sandbox);await vm.runInContext("api('/private-work')",sandbox);assert.equal(calls,5);
+});
+
+
+test('The authorized guide baseline applies only to existing accounts and frozen guide IDs; updates still need confirmation',async()=>{
+ const {db,request}=context();db.prepare('INSERT INTO instruction_baseline_users(email) VALUES(?)').run('engineer@demo.local');
+ const current=(await request('/me',{who:'engineer@demo.local'})).data.instructions;
+ assert.ok(current.acknowledged.includes('engineering-task-engineering-v12'));assert.ok(!current.acknowledged.includes('workspace-update-engineering-v1'));assert.equal(db.prepare('SELECT COUNT(*) n FROM instruction_acknowledgements').get().n,0);
+ const newUser=(await request('/me')).data.instructions;assert.equal(newUser.acknowledged.length,0);
+ const ids=['workspace-update-engineering-v1','pr-review-engineering-v1'];assert.equal((await request('/instructions/ack',{who:'engineer@demo.local',method:'POST',body:{ids}})).status,200);assert.equal(db.prepare('SELECT COUNT(*) n FROM instruction_acknowledgements').get().n,2);
+ assert.equal((await request('/instructions/ack',{who:'engineer@demo.local',method:'POST',body:{ids:['qa-feedback-replies-engineering-v1','team-access-admin-v1']}})).status,404);assert.equal(db.prepare('SELECT COUNT(*) n FROM instruction_acknowledgements').get().n,2);
+ assert.ok(!(await request('/me')).data.instructions.acknowledged.includes(ids[0]));db.close();
+});
+
+test('Page instructions consolidate to one brief card and one explicit confirmation without discarding full guides',()=>{
+ const code=readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),sandbox={document:{addEventListener(){}},console};vm.createContext(sandbox);vm.runInContext(code.slice(0,code.indexOf('const taskTitle=')),sandbox);
+ const guides=instructionGuides({role:'member',groups:['Engineering']});vm.runInContext(`state.instructions={guides:${JSON.stringify(guides)},acknowledged:[]}`,sandbox);
+ const html=vm.runInContext('instructionFor("engineering-task")',sandbox);assert.equal((html.match(/<aside /g)||[]).length,1);assert.equal((html.match(/I understand/g)||[]).length,1);assert.equal((html.match(/<li>/g)||[]).length,3);assert.match(html,/Read full guide/);assert.ok(guides.filter(g=>g.surface==='engineering-task').length>1);
+});
+
+test('Board focus separates feasibility, development, PR review and Stage deployment and intersects shared owners',()=>{
+ const code=readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),me='owner@example.com';
+ const make=(id,phase,owner=me,extra={})=>({id,title:id,category:'Reports',development_status:'In Development',qa_status:'Not Tested',assignee:me,workflow:{phase,owner,actions:['progress'],...extra}});
+ const tasks=[make('request','review'),make('working','development'),make('fix','development'),make('PR','pr_review','reviewer@example.com',{owners:['reviewer@example.com',me]}),make('deploy','stage_deploy','reviewer@example.com',{owners:['reviewer@example.com',me]}),make('test','qa','qa@example.com'),make('production','production'),make('unassigned','review')];tasks.at(-1).assignee='';tasks.at(-1).workflow.owner='';tasks[2].qa_status='Changes Required';
+ const state={tasks,filter:'',categoryFilter:'all',devFilter:'all',qaFilter:'all',workKindFilter:'all',planningFilter:'all',boardPhase:'all',boardPeople:'all',user:{email:me}},sandbox={state,e:x=>String(x??''),who:x=>x};vm.createContext(sandbox);vm.runInContext(code.slice(code.indexOf('const boardFilterFields='),code.indexOf('function renderBoardFilters(')),sandbox);
+ const ids=()=>Array.from(sandbox.filterBoardTasks(tasks),t=>t.id);
+ for(const [phase,expected]of [['review',['request','unassigned']],['engineering',['working','fix']],['pr',['PR','deploy']],['qa',['test']]]){state.boardPhase=phase;assert.deepEqual(ids(),expected);}
+ state.boardPeople='action';state.boardPhase='pr';assert.deepEqual(ids(),['PR','deploy']);state.boardPhase='qa';assert.deepEqual(ids(),[]);
+ state.boardPeople='unassigned';state.boardPhase='review';assert.deepEqual(ids(),['unassigned']);state.boardPeople='all';state.boardPhase='engineering';state.qaFilter='changes';assert.deepEqual(ids(),['fix']);
+ const html=sandbox.renderBoardFocus(tasks);assert.equal((html.match(/class="board-tab-count"/g)||[]).length,1);assert.match(html,/Development<span class="board-tab-count">1<\/span>/);assert.ok(!html.includes('data-board-phase="stage_deploy"'));assert.match(html,/PR & Stage/);assert.equal((html.match(/data-board-people=/g)||[]).length,3);assert.ok(!html.includes('Related to me'));assert.match(html,/Feasibility/);assert.match(html,/PR & Stage/);assert.match(html,/data-board-people="all" class="selected" aria-pressed="true"/);
+});
+
+test('Daily Engineering Activity stays collapsed, avoids the initial request and ignores stale responses',async()=>{
+ const code=readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),state={view:'board',boardActivityOpen:false,day:'2026-10-13',workspaceRevision:1},root={innerHTML:''};let calls=0,resolve;
+ const sandbox={state,$:()=>root,api:()=>{calls++;return new Promise(r=>resolve=r)},e:x=>x,ui:x=>x};vm.createContext(sandbox);vm.runInContext(code.slice(code.indexOf('async function loadBoardActivity('),code.indexOf('function renderPrivateWork(')),sandbox);
+ await sandbox.loadBoardActivity();assert.equal(calls,0);state.boardActivityOpen=true;const pending=sandbox.loadBoardActivity();assert.equal(calls,1);resolve({activities:[]});await pending;assert.match(root.innerHTML,/No board activity for this date/);
+ root.innerHTML='kept';const stale=sandbox.loadBoardActivity();state.workspaceRevision++;resolve({activities:[]});await stale;assert.equal(root.innerHTML,'kept');
+ state.boardActivityOpen=false;await sandbox.loadBoardActivity();assert.equal(calls,2);
+ const renderState={tasks:[],archivedTasks:[],statuses:{categories:[],development:[]},filter:'',categoryFilter:'all',devFilter:'all',qaFilter:'all',boardPhase:'all',boardPeople:'all',boardActivityOpen:false,boardLayout:'cards',boardScope:'active',boardSort:'priority',day:'2026-10-13'},renderer={state:renderState,e:x=>String(x??''),tr:x=>x,ui:x=>x,who:x=>x,categoryPicker:()=>'',option:()=>'',workspaceDayLabel:()=>'',canWrite:()=>true,heading:()=>'',renderEngineeringCards:()=>''};vm.createContext(renderer);vm.runInContext(code.slice(code.indexOf('const boardFilterFields='),code.indexOf('function boardPhaseBadge(')),renderer);
+ let html=renderer.renderBoard();assert.match(html,/<details[^>]*id="board-daily-activity"\s*>/);assert.ok(!html.includes('id="board-people"'));renderState.boardActivityOpen=true;html=renderer.renderBoard();assert.match(html,/<details[^>]*id="board-daily-activity" open>/);
+});
+
+test('Stage correction previews actual restored values, stays in history and respects read-only and stale state',()=>{
+ const code=readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),escape=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),sandbox={state:{user:{email:'eng@example.com',groups:['Engineering']}},canDev:()=>true,canQA:()=>false,canManage:()=>false,e:escape,tr:x=>x,ui:escape,who:x=>x,dateFmt:x=>x,timeFmt:x=>x,option:()=>'',workflowMemberOptions:()=>'',collaboratorPicker:()=>''};vm.createContext(sandbox);vm.runInContext(code.slice(code.indexOf('function undoStageContext('),code.indexOf('function discussionRecipientPicker(')),sandbox);
+ const before={development_status:'In Development',qa_status:'Not Tested',next_action_owner:'eng@example.com',qa_due_date:'',assignee:'eng@example.com'},d={task:{work_kind:'Engineering',planning_status:'Active',development_status:'On Stage',qa_status:'Retest Required',next_action_owner:'qa@example.com',assignee:'eng@example.com',primary_owner:'eng@example.com',qa_due_date:'2026-10-22',workflow_revision:7,collaborators_json:'[]'},workflow:{phase:'qa'},stage_changes:[{id:1,to_revision:7,before_json:JSON.stringify(before),after_json:JSON.stringify({development_status:'On Stage',qa_status:'Retest Required'}),recorded_at:'2026-10-15'}],qa_rounds:[],collaborator_work:[]};
+ const html=sandbox.trackingOverview(d,true),history=html.indexOf('<details class="stage-change-history">');assert.ok(history>0);assert.ok(!html.slice(0,history).includes('data-undo-stage'));assert.match(html.slice(history),/Undo last stage change/);assert.match(html,/Changes to restore/);assert.match(html,/On Stage/);assert.match(html,/In Development/);assert.match(html,/2026-10-22/);assert.match(html,/does not undo code merges or deployments/);
+ assert.equal(sandbox.stageCorrectionControl(d,false),'');d.stage_changes[0].to_revision=6;assert.equal(sandbox.undoStagePreview(d),'');assert.equal(sandbox.stageCorrectionControl(d,true),'');d.stage_changes[0].to_revision=7;d.stage_changes[0].undone=1;assert.equal(sandbox.stageCorrectionControl(d,true),'');
+ d.stage_changes[0].undone=0;d.stage_changes[0].activity_id='latest';d.activities=[{id:'latest',result:'On Stage',action_type:'Deployment',acknowledges_comments:1,notes:'Ready to test'}];d.comments=[];d.attachments=[];sandbox.canWrite=()=>true;sandbox.badge=x=>x;sandbox.attachmentTiles=()=>'';
+ vm.runInContext(code.slice(code.indexOf('function previousStageSnapshot('),code.indexOf('function renderDetail(')),sandbox);
+ assert.match(sandbox.previousStageCard(d),/Undo this stage change/);assert.ok(!sandbox.trackingOverview(d,true).includes('data-undo-stage'),'The matching card owns the entry; settings do not duplicate it');
+ d.stage_changes[0].activity_id='other-update';assert.ok(!sandbox.previousStageCard(d).includes('data-undo-stage'),'An older feedback card must not offer undo for a different update');assert.match(sandbox.trackingOverview(d,true),/data-undo-stage/);
+});
+
+test('Undo clarification retains explicit confirmation, reason and revision without performing an undo on open',async()=>{
+ const code=readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),writes=[];let modal,toasts=0;const sandbox={e:x=>String(x??''),ui:x=>String(x??''),tr:x=>x,who:x=>x,dateFmt:x=>x,$:()=>({value:'Confirmed the wrong stage'}),showToast:()=>toasts++,trackingConfirmation:(title,body,action,options)=>modal={title,body,action,options},api:async(path,options)=>writes.push({path,body:JSON.parse(options.body)})};vm.createContext(sandbox);vm.runInContext(code.slice(code.indexOf('function undoStageContext('),code.indexOf('function trackingOverview(')),sandbox);
+ const d={task:{id:'task-id',development_status:'PR Submitted',workflow_revision:4},stage_changes:[{to_revision:4,before_json:JSON.stringify({development_status:'In Development'})}]};sandbox.showUndoStageConfirmation(d);assert.equal(writes.length,0);assert.equal(modal.title,'Undo last stage change?');assert.equal(modal.options.label,'Undo this change');assert.match(modal.body,/Why was this stage change a mistake/);assert.match(modal.body,/Activity history is kept/);await modal.action();assert.deepEqual(writes,[{path:'/tasks/task-id/undo-stage',body:{confirm:true,reason:'Confirmed the wrong stage',expected_revision:4}}]);d.task.workflow_revision=5;sandbox.showUndoStageConfirmation(d);assert.equal(toasts,1);assert.equal(writes.length,1);
+});
+
+
+test('Attachment areas focus without opening a picker; only Choose files opens the correct destination',()=>{
+ const code=readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),handlers={},opened=[];let focused=0,choose=false;
+ const zone={dataset:{evidenceInput:'workflow-files'},hasAttribute:()=>false,focus:()=>focused++};
+ const sandbox={document:{addEventListener:(name,fn)=>handlers[name]=fn},$:id=>({click:()=>opened.push(id)})};vm.createContext(sandbox);
+ const start=code.indexOf("document.addEventListener('click',ev=>{const zone=ev.target.closest('.paste-target')");
+ vm.runInContext(code.slice(start,code.indexOf("document.addEventListener('dragover'",start)),sandbox);
+ const target={closest:selector=>selector==='.paste-target'?zone:selector==='[data-choose-files]'?choose:selector==='button,a,input'?choose:null};
+ handlers.click({target});assert.equal(focused,1);assert.equal(opened.length,0);
+ choose=true;handlers.click({target});assert.deepEqual(opened,['#workflow-files']);assert.equal(focused,1);
+ zone.dataset.evidenceInput='comment-file-qa';handlers.click({target});assert.equal(opened.at(-1),'#comment-file-qa');
+ zone.hasAttribute=()=>true;handlers.click({target});assert.equal(opened.length,2);
+});
+
+test('Activity labels distinguish work records from stages while preserving original option values',()=>{
+ const code=readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),sandbox={e:x=>String(x)};vm.createContext(sandbox);
+ vm.runInContext(code.slice(code.indexOf('const activityTypeLabels='),code.indexOf('const inputSelect=')),sandbox);
+ const keys=['Requirement','Development','PR','Merge','Deployment','Feedback','Other'];
+ const html=sandbox.activityTypeSelect([...keys,'Development'],'Development');
+ assert.match(html,/Activity type/);assert.match(html,/<option value="Development" selected>Development work<\/option>/);
+ for(const key of keys)assert.equal((html.match(new RegExp('value="'+key+'"','g'))||[]).length,1);
+ assert.match(code,/action_type:kind,advance_workflow:false/,'Recording an activity must not advance workflow');
+ const before={development_status:'PR Submitted',qa_status:'Need Explanation',category:'Reports'};
+ sandbox.activityTypeSelect(keys,'PR');assert.deepEqual(before,{development_status:'PR Submitted',qa_status:'Need Explanation',category:'Reports'});
+});
+
+test('Existing stage, QA and legacy Type values remain compatible after display clarification',async()=>{
+ const {db,request}=context();const me=(await request('/me')).data;
+ for(const key of ['development','qa','types','priorities','actions','categories'])assert.equal(new Set(me.statuses[key]).size,me.statuses[key].length,key+' must not have duplicate options');
+ for(const stage of ['New Request','Under Review','Approved','In Development','PR Submitted','Merged / Awaiting Stage','On Stage','Approved for Production','Awaiting Production Deploy','On Production','Closed','On Hold'])assert.ok(me.statuses.development.includes(stage));
+ for(const result of ['Not Tested','Retest Required','Passed','Partially Passed','Changes Required','Need Explanation','No Visible Changes','Unable to Test'])assert.ok(me.statuses.qa.includes(result));
+ for(const type of ['UI/UX','Investigation']){const r=await request('/tasks',{method:'POST',body:{title:'Legacy type remains supported',type}});assert.equal(r.status,201);const d=(await request('/tasks/'+r.data.id)).data;assert.equal(d.task.type,type);assert.equal(d.task.development_status,'New Request');}
+ db.close();
+});
+
+test('Category frequency ordering counts non-deleted active, completed and archived tasks without changing names',async()=>{
+ const {db,request}=context();
+ for(const category of ['Reports','Reports','Reports','Billing','Billing','General'])await request('/tasks',{method:'POST',body:{title:'Frequency fixture',category}});
+ const reportIds=db.prepare("SELECT id FROM tasks WHERE category='Reports'").all();
+ db.prepare('UPDATE tasks SET archived=1 WHERE id=?').run(reportIds[0].id);
+ db.prepare("UPDATE tasks SET development_status='Closed',planning_status='Completed' WHERE id=?").run(reportIds[1].id);
+ const removed=(await request('/tasks',{method:'POST',body:{title:'Deleted category fixture',category:'Other'}})).data.id;
+ db.prepare('UPDATE tasks SET deleted=1 WHERE id=?').run(removed);
+ const list=(await request('/categories')).data.categories;
+ assert.deepEqual(list.slice(0,3),['Reports','Billing','General']);assert.deepEqual(list.slice(3),['Other','Patients','Scheduling']);
+ assert.deepEqual((await request('/me')).data.statuses.categories,list);
+ assert.equal(db.prepare('SELECT category FROM tasks WHERE id=?').get(reportIds[0].id).category,'Reports');db.close();
+});
+
+async function qaStageFixture(){
+ const c=context();const tid=(await c.request('/tasks',{method:'POST',body:{title:'Simple QA outcomes',assignee:'engineer@demo.local'}})).data.id;
+ assert.equal((await advance(c.request,tid,'review',{feasibility:'Confirmed',assignee:'engineer@demo.local',estimated_delivery_date:futureDelivery()})).status,201);
+ assert.equal((await advance(c.request,tid,'stage',{qa_owner:'admin@demo.local'})).status,201);return {...c,tid};
+}
+test('Passed needs no details, while partial and unsuccessful QA require issues and return to Engineering',async()=>{
+ for(const result of ['Passed','Partially Passed','Not Passed']){
+  const {db,request,tid}=await qaStageFixture();const me=(await request('/me')).data;
+  assert.deepEqual(me.statuses.qa_results,['Passed','Partially Passed','Not Passed']);
+  const blank=await advance(request,tid,'qa',{qa_status:result},'admin@demo.local');
+  assert.equal(blank.status,result==='Passed'?201:400);
+  if(result!=='Passed')assert.equal((await advance(request,tid,'qa',{qa_status:result,notes:'The total is incorrect; show the tax breakdown.'},'admin@demo.local')).status,201);
+  const d=(await request('/tasks/'+tid)).data;assert.equal(d.task.qa_status,result);
+  assert.equal(d.workflow.phase,result==='Passed'?'production':'development');
+  const activity=d.activities.find(a=>a.action_type==='QA Testing');assert.equal(activity.result,result);assert.ok(activity.notes);
+  if(result!=='Passed'){assert.equal(d.task.delivery_reset_required,1);assert.equal(d.task.next_action_owner,'engineer@demo.local');}
+  assert.equal(d.qa_rounds[0].result,result);db.close();
+ }
+});
+
+test('Discussion before a QA verdict keeps the confirmed Stage, round, due date and task result intact',async()=>{
+ const {db,request,tid}=await qaStageFixture();const before=(await request('/tasks/'+tid)).data;
+ const comment=await request('/tasks/'+tid+'/comments',{method:'POST',body:{body:'Which date should this report use?',action_owners:['engineer@demo.local']}});assert.equal(comment.status,201);
+ const after=(await request('/tasks/'+tid)).data;
+ for(const key of ['development_status','qa_status','stage_confirmed_at','qa_due_date','qa_completed_date','estimated_delivery_date','delivery_reset_required','workflow_revision'])assert.equal(after.task[key],before.task[key],key);
+ assert.equal(after.workflow.phase,'qa');assert.deepEqual(after.qa_rounds,before.qa_rounds);assert.equal(after.discussion_actions.filter(a=>!a.resolved&&a.owner_email==='engineer@demo.local').length,1);db.close();
+});
+
+test('Current QA labels migrate once with a record of original values; discussions and immutable history stay intact',async()=>{
+ const {db,request}=context(),migration=readFileSync(new URL('../migrations/0028_qa_result_labels.sql',import.meta.url),'utf8'),ids=[];
+ for(const qa of ['Changes Required','No Visible Changes','Unable to Test','Need Explanation','Partially Passed','Passed','Not Tested','Retest Required']){
+  const tid=(await request('/tasks',{method:'POST',body:{title:'Existing QA label'}})).data.id;
+  db.prepare('UPDATE tasks SET qa_status=? WHERE id=?').run(qa,tid);ids.push(tid);
+ }
+ const deleted=(await request('/tasks',{method:'POST',body:{title:'Deleted history'}})).data.id;db.prepare("UPDATE tasks SET qa_status='Changes Required',deleted=1 WHERE id=?").run(deleted);
+ const before=db.prepare('SELECT * FROM tasks ORDER BY id').all(),history=db.prepare('SELECT * FROM activities ORDER BY id').all(),stageHistory=db.prepare('SELECT * FROM stage_changes').all(),trigger=db.prepare("SELECT sql FROM sqlite_master WHERE name='stage_changes_capture'").get().sql;
+ db.exec(migration);db.exec(migration);
+ const after=db.prepare('SELECT * FROM tasks ORDER BY id').all();
+ assert.deepEqual(JSON.parse(JSON.stringify(after.map(t=>({...t,qa_status:before.find(b=>b.id===t.id).qa_status})))),JSON.parse(JSON.stringify(before)));
+ assert.deepEqual(db.prepare('SELECT * FROM activities ORDER BY id').all(),history);
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM qa_result_label_changes').get().n,3);assert.deepEqual(db.prepare('SELECT * FROM stage_changes').all(),stageHistory);assert.equal(db.prepare("SELECT sql FROM sqlite_master WHERE name='stage_changes_capture'").get().sql,trigger);
+ for(let i=0;i<ids.length;i++)assert.equal(db.prepare('SELECT qa_status FROM tasks WHERE id=?').get(ids[i]).qa_status,i<3?'Not Passed':before.find(t=>t.id===ids[i]).qa_status);
+ assert.equal(db.prepare('SELECT qa_status FROM tasks WHERE id=?').get(deleted).qa_status,'Changes Required');db.close();
+});
+
+test('First-use onboarding is stable across old versions, roles and future reference guides, with per-account acknowledgement',async()=>{
+ const {db,request}=context();db.prepare('INSERT INTO instruction_acknowledgements VALUES(?,?,?)').run('engineer@demo.local','engineering-task-engineering-v1','already-read');
+ let me=(await request('/me',{who:'engineer@demo.local'})).data.instructions;
+ assert.ok(me.acknowledged.includes('first-use-engineering-task'));assert.ok(me.onboarding.every(g=>g.steps.length<=3));
+ assert.equal(new Set(me.onboarding.map(g=>g.id)).size,me.onboarding.length);
+ db.exec("UPDATE users SET groups_json='[\"QA\"]' WHERE email='engineer@demo.local'");
+ assert.ok((await request('/me',{who:'engineer@demo.local'})).data.instructions.acknowledged.includes('first-use-engineering-task'));
+ me=(await request('/me')).data.instructions;assert.ok(!me.acknowledged.includes('first-use-engineering-task'));
+ assert.equal((await request('/instructions/ack',{method:'POST',body:{id:'first-use-engineering-task'}})).status,200);
+ const again=(await request('/me')).data.instructions;assert.ok(again.acknowledged.includes('first-use-engineering-task'));
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM instruction_acknowledgements WHERE email=?').get('admin@demo.local').n,1);
+ assert.equal((await request('/instructions/ack',{who:'boss@demo.local',method:'POST',body:{id:'first-use-private-task'}})).status,404);db.close();
+});
+
+test('Confirmed Production deployment completes once, preserves the owner, joins release candidates and can be corrected with Undo',async()=>{
+ const {db,request,tid}=await qaStageFixture();await advance(request,tid,'qa',{qa_status:'Passed'},'admin@demo.local');
+ const before=(await request('/tasks/'+tid)).data,day=new Date().toLocaleDateString('en-CA',{timeZone:'America/Los_Angeles'});
+ assert.equal((await advance(request,tid,'production',{activity_date:day,notes:'Deployed and verified.'})).status,201);
+ let d=(await request('/tasks/'+tid)).data;
+ assert.equal(d.task.development_status,'Closed');assert.equal(d.task.planning_status,'Completed');assert.equal(d.task.completed_date,day);assert.equal(d.task.production_completed_date,day);assert.equal(d.task.current_environment,'Production');assert.equal(d.task.assignee,before.task.assignee);assert.deepEqual(d.workflow.actions,[]);assert.equal(d.task.current_due_date,'');
+ assert.equal(d.activities.filter(a=>a.result==='On Production').length,1);
+ const activityCount=d.activities.length;assert.equal((await advance(request,tid,'close',{notes:'Old client retry'})).status,200);assert.equal((await request('/tasks/'+tid)).data.activities.length,activityCount);
+ assert.ok((await request('/releases')).data.releases.some(r=>r.auto_candidates?.includes(tid)));
+ assert.equal((await request('/tasks/'+tid+'/undo-stage',{who:'engineer@demo.local',method:'POST',body:{confirm:true,reason:'Deployment confirmation was premature',expected_revision:d.task.workflow_revision}})).status,200);
+ d=(await request('/tasks/'+tid)).data;assert.equal(d.workflow.phase,'production');assert.equal(d.task.completed_date,'');assert.equal(d.task.planning_status,'Active');db.close();
+});
+
+test('Existing On Production tasks complete from recorded dates without a fabricated work entry or changes to history',async()=>{
+ const {db,request}=context(),migration=readFileSync(new URL('../migrations/0029_production_completes_task.sql',import.meta.url),'utf8');
+ const dated=(await request('/tasks',{method:'POST',body:{title:'Already delivered'}})).data.id,unknown=(await request('/tasks',{method:'POST',body:{title:'Unknown old date'}})).data.id,waiting=(await request('/tasks',{method:'POST',body:{title:'Not delivered'}})).data.id;
+ db.prepare("UPDATE tasks SET development_status='On Production',production_completed_date='2026-10-13',next_action_owner='engineer@demo.local' WHERE id=?").run(dated);
+ db.prepare("UPDATE tasks SET development_status='On Production' WHERE id=?").run(unknown);
+ const logs=db.prepare('SELECT * FROM activities').all(),stages=db.prepare('SELECT * FROM stage_changes').all(),releases=db.prepare('SELECT * FROM releases').all();
+ db.exec(migration);db.exec(migration);
+ assert.equal(db.prepare('SELECT completed_date FROM tasks WHERE id=?').get(dated).completed_date,'2026-10-13');assert.equal(db.prepare('SELECT completed_date FROM tasks WHERE id=?').get(unknown).completed_date,'');
+ for(const tid of [dated,unknown]){const t=db.prepare('SELECT * FROM tasks WHERE id=?').get(tid);assert.equal(t.development_status,'Closed');assert.equal(t.planning_status,'Completed');assert.equal(t.next_action_owner,'');}
+ assert.equal(db.prepare('SELECT development_status FROM tasks WHERE id=?').get(waiting).development_status,'New Request');
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM production_completion_changes').get().n,2);assert.deepEqual(db.prepare('SELECT * FROM activities').all(),logs);assert.deepEqual(db.prepare('SELECT * FROM stage_changes').all(),stages);assert.deepEqual(db.prepare('SELECT * FROM releases').all(),releases);db.close();
+});
+
+test('QA-approved tasks auto-join current release Changes while future reservations, exclusions and Stage validation remain intact',async()=>{
+ const {db,request,tid}=await qaStageFixture();await advance(request,tid,'qa',{qa_status:'Passed'},'admin@demo.local');
+ const me=(await request('/releases')).data.releases,current=me.find(r=>r.status==='Planned');assert.ok(current.auto_candidates.includes(tid));assert.ok(JSON.parse(current.task_ids_json).includes(tid));
+ const future=(await request('/releases',{method:'POST',body:{version:'Future reserved QA',planned_date:'2099-11-11'}})).data.id;
+ assert.equal((await request('/releases/'+future,{method:'PATCH',body:{task_ids:[tid]}})).status,200);
+ assert.ok(!JSON.parse((await request('/releases')).data.releases.find(r=>r.id===current.id).task_ids_json).includes(tid));
+ await request('/releases/'+future,{method:'PATCH',body:{task_ids:[]}});
+ const refreshed=(await request('/releases')).data.releases.find(r=>r.id===current.id);
+ await request('/releases/'+current.id,{method:'PATCH',body:{task_ids:[],plan_revision:refreshed.plan_revision}});
+ assert.ok(!JSON.parse((await request('/releases')).data.releases.find(r=>r.id===current.id).task_ids_json).includes(tid));
+ db.prepare("UPDATE releases SET auto_excluded_json='[]' WHERE id=?").run(current.id);
+ db.prepare("UPDATE tasks SET qa_passed_stage_at='a different build' WHERE id=?").run(tid);
+ assert.ok(!(await request('/releases')).data.releases.find(r=>r.id===current.id).auto_candidates.includes(tid));
+ assert.equal((await request('/tasks/'+tid)).data.task.development_status,'Approved for Production');db.close();
+});
+
+test('Overdue release plans keep the original plan date and default actual release date to the current day',()=>{
+ const code=readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),root={querySelectorAll:()=>[]},nodes={'#release-results':root};
+ const sandbox={document:{addEventListener(){},querySelector:id=>nodes[id],querySelectorAll:()=>[]},console,todayDate:()=> '2026-10-15'};vm.createContext(sandbox);vm.runInContext(code.slice(0,code.indexOf('const taskTitle=')),sandbox);vm.runInContext(code.slice(code.indexOf('let releaseList='),code.indexOf('async function saveRelease(')),sandbox);
+ vm.runInContext(`state.user={role:'admin',groups:['Engineering']};releaseList=[{id:'overdue',version:'v1',status:'Planned',planned_date:'2026-10-14',task_ids_json:'[]',notes:''}];selectedRelease='overdue';releaseEditorOpen=true;renderReleases();`,sandbox);
+ assert.match(root.innerHTML,/Overdue/);assert.match(root.innerHTML,/id="release-planned"[^>]*value="2026-10-14"/);assert.match(root.innerHTML,/id="release-actual"[^>]*value="2026-10-15"/);
+ assert.equal(vm.runInContext(`releaseIsOverdue({status:'Released',planned_date:'2026-10-14'})`,sandbox),false);
+ assert.equal(vm.runInContext(`releaseIsOverdue({status:'Planned',planned_date:'2026-10-15'})`,sandbox),false);
+});
+
+test('Task numbers backfill every task without changing existing fields or history',async()=>{
+ const {db,request}=context({signalsMigration:false});
+ const a=(await request('/tasks',{method:'POST',body:{title:'Legacy engineering'}})).data.id;
+ const b=(await request('/tasks',{method:'POST',body:{title:'Legacy quick',work_kind:'Quick Task',assignee:'engineer@demo.local'}})).data.id;
+ const p=(await request('/private-work',{method:'POST',who:'engineer@demo.local',body:{kind:'Task',title:'Private old task'}})).data.id;
+ db.prepare('UPDATE tasks SET deleted=1 WHERE id=?').run(b);
+ const old=db.prepare('SELECT * FROM tasks ORDER BY id').all(),history=db.prepare('SELECT * FROM activities ORDER BY id').all(),stage=db.prepare('SELECT * FROM stage_changes ORDER BY id').all();
+ db.exec(readFileSync(new URL('../migrations/0031_task_numbers_and_urgent.sql',import.meta.url),'utf8'));
+ const rows=db.prepare('SELECT * FROM tasks ORDER BY id').all();for(let i=0;i<rows.length;i++){const{task_code,...rest}=rows[i];assert.match(task_code,/^WT-\d{6}$/);assert.deepEqual(rest,{...old[i]});}
+ assert.deepEqual(db.prepare('SELECT * FROM activities ORDER BY id').all(),history);assert.deepEqual(db.prepare('SELECT * FROM stage_changes ORDER BY id').all(),stage);
+ assert.match(db.prepare('SELECT task_code FROM private_work WHERE id=?').get(p).task_code,/^WT-\d{6}$/);
+ assert.equal(new Set(db.prepare('SELECT number FROM task_numbers').all().map(r=>r.number)).size,3);
+ assert.throws(()=>db.prepare("UPDATE tasks SET task_code='WT-999999' WHERE id=?").run(a),/permanent/);
+ assert.throws(()=>db.exec('DELETE FROM task_numbers'),/permanent/);db.close();
+});
+
+test('Concurrent shared, Quick and private task creation reserves one permanent global sequence',async()=>{
+ const {db,request}=context();
+ const created=await Promise.all(Array.from({length:20},(_,i)=>i%2?request('/tasks',{method:'POST',body:{title:'Quick '+i,work_kind:'Quick Task',assignee:'engineer@demo.local'}}):request('/private-work',{method:'POST',who:'engineer@demo.local',body:{kind:'Task',title:'Private '+i}})));
+ assert(created.every(r=>r.status===201));const ids=db.prepare('SELECT * FROM task_numbers').all();assert.equal(ids.length,20);assert.equal(new Set(ids.map(r=>r.number)).size,20);
+ const before=Math.max(...ids.map(r=>r.number));db.prepare('UPDATE tasks SET deleted=1,archived=1').run();
+ await request('/tasks',{method:'POST',body:{title:'Next task'}});assert.equal(db.prepare('SELECT MAX(number) n FROM task_numbers').get().n,before+1);
+ const privateId=created[0].data.id;assert.equal((await request('/private-work/'+privateId)).status,404,'Admin gets no access to another person private task');
+ const exportData=(await request('/export')).data;assert.equal(exportData.tables.task_numbers.filter(r=>r.entity==='private').length,0);db.close();
+});
+
+test('Urgency is independent, access-scoped and acknowledgement survives refresh without changing work',async()=>{
+ const{db,request}=context();const tid=(await request('/tasks',{method:'POST',body:{title:'Urgent communication',assignee:'engineer@demo.local',priority:'Low'}})).data.id;
+ const before=db.prepare('SELECT * FROM tasks WHERE id=?').get(tid),work=db.prepare('SELECT count(*) n FROM activities').get().n,stages=db.prepare('SELECT count(*) n FROM stage_changes').get().n;
+ const action=(who,name)=>request('/tasks/'+tid+'/urgent',{method:'POST',who,body:{action:name}});
+ assert.equal((await action('admin@demo.local','mark')).status,200);assert.equal((await action('admin@demo.local','mark')).status,200);
+ assert.equal(db.prepare('SELECT count(*) n FROM urgent_events').get().n,1);
+ let summary=(await request('/summary',{who:'engineer@demo.local'})).data;assert.equal(summary.urgent_reminders[0].id,tid);
+ assert.equal((await request('/summary')).data.urgent_reminders.length,0,'Marker is not automatically a recipient');
+ assert.equal((await action('admin@demo.local','acknowledge')).status,403);
+ assert.equal((await action('engineer@demo.local','acknowledge')).status,200);assert.equal((await action('engineer@demo.local','acknowledge')).status,200);
+ assert.equal((await request('/summary',{who:'engineer@demo.local'})).data.urgent_reminders.length,0);
+ const details=(await request('/tasks/'+tid,{who:'engineer@demo.local'})).data;assert.equal(details.task.urgency.active,true);assert.equal(details.urgency_events.length,2);
+ assert.deepEqual(db.prepare('SELECT * FROM tasks WHERE id=?').get(tid),before);assert.equal(db.prepare('SELECT count(*) n FROM activities').get().n,work);assert.equal(db.prepare('SELECT count(*) n FROM stage_changes').get().n,stages);
+ assert.equal((await action('engineer@demo.local','cancel')).status,200,'Actual task owner can cancel');
+ assert.equal((await request('/tasks/'+tid)).data.task.urgency,null);assert.equal(db.prepare('SELECT count(*) n FROM urgent_events').get().n,3);db.close();
+});
+
+test('Only marker or actual owner can cancel; Manager urgent communication grants no workflow permissions',async()=>{
+ const{db,request}=context();db.exec("INSERT INTO users(email,display_name,role,groups_json) VALUES('other@demo.local','Other','admin','[]')");
+ const tid=(await request('/tasks',{method:'POST',body:{title:'Permission boundary',assignee:'engineer@demo.local'}})).data.id;
+ const path='/tasks/'+tid+'/urgent';assert.equal((await request(path,{who:'boss@demo.local',mode:'team',method:'POST',body:{action:'mark'}})).status,200);
+ assert.equal((await request(path,{who:'other@demo.local',method:'POST',body:{action:'cancel'}})).status,403,'Unrelated Admin is not a task owner');
+ assert.equal((await request('/tasks/'+tid,{who:'boss@demo.local',mode:'team',method:'PATCH',body:{title:'Forbidden edit'}})).status,403);
+ assert.equal((await request(path,{who:'boss@demo.local',method:'POST',body:{action:'cancel'}})).status,200);
+ db.close();
+});
+
+test('Urgent recipients follow QA, PR co-owners, discussion and resolved work',async()=>{
+ const{db,request}=context();const tid=(await request('/tasks',{method:'POST',body:{title:'Handoff urgency',assignee:'engineer@demo.local'}})).data.id;
+ const urgent=(who,action)=>request('/tasks/'+tid+'/urgent',{method:'POST',who,body:{action}}),summary=async who=>(await request('/summary',{who})).data.urgent_reminders;
+ await urgent('admin@demo.local','mark');await urgent('engineer@demo.local','acknowledge');
+ db.prepare("UPDATE tasks SET development_status='On Stage',feasibility='Confirmed',qa_owner='admin@demo.local',stage_confirmed_at='round-1' WHERE id=?").run(tid);
+ assert.equal((await summary('engineer@demo.local')).length,0);assert.equal((await summary('admin@demo.local')).length,1);await urgent('admin@demo.local','acknowledge');
+ db.prepare("UPDATE tasks SET development_status='In Development',qa_status='Not Passed' WHERE id=?").run(tid);assert.equal((await summary('engineer@demo.local')).length,1,'New Engineering action gets a fresh acknowledgement');
+ db.exec("INSERT INTO users(email,display_name,role,groups_json) VALUES('reviewer@demo.local','Reviewer','member','[\"Engineering\"]')");
+ db.prepare("UPDATE tasks SET development_status='PR Submitted',pr_reviewer='reviewer@demo.local' WHERE id=?").run(tid);
+ assert.equal((await summary('reviewer@demo.local')).length,1);assert.equal((await summary('engineer@demo.local')).length,1);
+ db.prepare("INSERT INTO comments(id,task_id,actor_email,body) VALUES('urgent-discussion',?,'engineer@demo.local','Please confirm')").run(tid);db.prepare("INSERT INTO discussion_actions(id,task_id,comment_id,owner_email) VALUES('urgent-reply',?,'urgent-discussion','admin@demo.local')").run(tid);
+ assert.equal((await summary('admin@demo.local')).length,1);db.exec("UPDATE discussion_actions SET resolved=1 WHERE id='urgent-reply'");assert.equal((await summary('admin@demo.local')).length,0);
+ db.prepare("UPDATE tasks SET development_status='Closed',planning_status='Completed' WHERE id=?").run(tid);assert.equal((await summary('engineer@demo.local')).length,0);assert.equal((await summary('reviewer@demo.local')).length,0);db.close();
+});
+
+test('Urgent requires a resolvable current action owner and concurrent marks do not duplicate reminders',async()=>{
+ const{db,request}=context();const a=(await request('/tasks',{method:'POST',body:{title:'Unassigned'}})).data.id;
+ assert.equal((await request('/tasks/'+a+'/urgent',{method:'POST',body:{action:'mark'}})).status,409);
+ db.prepare("UPDATE tasks SET assignee='engineer@demo.local',primary_owner='engineer@demo.local',next_action_owner='engineer@demo.local' WHERE id=?").run(a);
+ const calls=await Promise.all(Array.from({length:5},()=>request('/tasks/'+a+'/urgent',{method:'POST',body:{action:'mark'}})));assert(calls.every(r=>r.status===200));
+ assert.equal(db.prepare('SELECT count(*) n FROM urgent_events').get().n,1);assert.equal((await request('/summary',{who:'engineer@demo.local'})).data.urgent_reminders.length,1);
+ await request('/tasks/'+a+'/urgent',{method:'POST',body:{action:'cancel'}});await request('/tasks/'+a+'/urgent',{method:'POST',body:{action:'mark'}});assert.equal(db.prepare('SELECT cycle FROM task_urgency').get().cycle,2);db.close();
+});
+
+test('A returning action owner gets a fresh reminder, while harmless text edits do not rearm acknowledgements',async()=>{
+ const{db,request}=context();const tid=(await request('/tasks',{method:'POST',body:{title:'Urgent reassignment',assignee:'engineer@demo.local'}})).data.id;
+ const call=(action,who='engineer@demo.local')=>request('/tasks/'+tid+'/urgent',{method:'POST',who,body:{action}});
+ await call('mark','admin@demo.local');await call('acknowledge');
+ db.prepare("UPDATE tasks SET title='Edited title',description='More detail' WHERE id=?").run(tid);assert.equal((await request('/summary',{who:'engineer@demo.local'})).data.urgent_reminders.length,0);
+ db.prepare("UPDATE tasks SET assignee='admin@demo.local',next_action_owner='admin@demo.local' WHERE id=?").run(tid);
+ db.prepare("UPDATE tasks SET assignee='engineer@demo.local',next_action_owner='engineer@demo.local' WHERE id=?").run(tid);assert.equal((await request('/summary',{who:'engineer@demo.local'})).data.urgent_reminders.length,1);db.close();
+});
+
+test('Urgent PR co-owners acknowledge independently and disabled recipients are not notified',async()=>{
+ const{db,request}=context();db.exec("INSERT INTO users(email,display_name,role,groups_json) VALUES('review@demo.local','Review','member','[\"Engineering\"]')");
+ const tid=(await request('/tasks',{method:'POST',body:{title:'Shared review',assignee:'engineer@demo.local'}})).data.id;
+ db.prepare("UPDATE tasks SET development_status='PR Submitted',feasibility='Confirmed',pr_reviewer='review@demo.local' WHERE id=?").run(tid);
+ await request('/tasks/'+tid+'/urgent',{method:'POST',body:{action:'mark'}});
+ await request('/tasks/'+tid+'/urgent',{method:'POST',who:'review@demo.local',body:{action:'acknowledge'}});
+ assert.equal((await request('/summary',{who:'review@demo.local'})).data.urgent_reminders.length,0);assert.equal((await request('/summary',{who:'engineer@demo.local'})).data.urgent_reminders.length,1);
+ db.exec("UPDATE users SET enabled=0 WHERE email='engineer@demo.local'");assert.equal((await request('/tasks/'+tid)).data.task.urgency.pending,false);assert.equal((await request('/summary',{who:'engineer@demo.local'})).status,403);db.close();
+});
+
+test('Urgent data cannot be read or changed without the existing authenticated session',async()=>{
+ const{db,env}=context();const before=db.prepare('SELECT count(*) n FROM task_urgency').get().n;
+ const r=await handle(new Request('https://app.example.com/api/tasks/00000000-0000-0000-0000-000000000001/urgent',{method:'POST',headers:{origin:'https://app.example.com','content-type':'application/json'},body:JSON.stringify({action:'mark'})}),{...env,DEV_AUTH:undefined});assert.equal(r.status,401);assert.equal(db.prepare('SELECT count(*) n FROM task_urgency').get().n,before);db.close();
+});
+
+test('Task identifiers appear only in details while board search still matches them',()=>{
+ const code=readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),sandbox={document:{addEventListener(){}},console};vm.createContext(sandbox);
+ vm.runInContext(code.slice(0,code.indexOf('const taskTitle=')),sandbox);vm.runInContext(code.slice(code.indexOf('const priorityRank='),code.indexOf('function renderDaily(')),sandbox);
+ const t={id:'test-code',task_code:'WT-000123',title:'Numbered task',description:'Task description',category:'Billing',priority:'Medium',type:'Improvement',sort_order:10,development_status:'New Request',qa_status:'Not Tested',assignee:'engineer@demo.local',planning_status:'Active',workflow:{phase:'review',owner:'engineer@demo.local'}};
+ sandbox.testTask=t;vm.runInContext("state.user={email:'engineer@demo.local',role:'member',groups:['Engineering']};state.tasks=[testTask];state.filter='wt-000123';",sandbox);
+ assert.equal(vm.runInContext('filterBoardTasks(state.tasks).length',sandbox),1);assert.ok(!vm.runInContext('renderEngineeringCards(state.tasks,state.tasks)',sandbox).includes('WT-000123'));
+ const details=vm.runInContext('taskIdentity(testTask)',sandbox);assert.match(details,/WT-000123/);assert.match(details,/Click to copy/);assert.ok(!details.includes('Copy Task Link'));assert.ok(!details.includes('Copy ID'));assert.ok(!details.includes('<svg'));
+});
+
+test('Backup checkpoint verifies every table and identifiers migration verifies the original task fields',()=>{
+ const {db}=context({signalsMigration:false});
+ db.exec(readFileSync(new URL('../migrations/0028_qa_result_labels.sql',import.meta.url),'utf8'));db.exec(readFileSync(new URL('../migrations/0029_production_completes_task.sql',import.meta.url),'utf8'));
+ db.exec("INSERT INTO tasks(id,title,type,created_by) VALUES('safety-check','Keep historical records','Bug Fix','engineer@demo.local'); INSERT INTO comments(id,task_id,actor_email,body) VALUES('safety-comment','safety-check','engineer@demo.local','Original comment');");
+ db.exec(readFileSync(new URL('../migrations/0030_pre_identifier_backup.sql',import.meta.url),'utf8'));
+ const checkpoints=db.prepare('SELECT * FROM system_backup_v85_manifest').all();assert.equal(checkpoints.length,32);assert(checkpoints.every(r=>r.verified===1&&r.row_count===r.snapshot_count));
+ const before=db.prepare("SELECT * FROM tasks WHERE id='safety-check'").get();db.exec(readFileSync(new URL('../migrations/0031_task_numbers_and_urgent.sql',import.meta.url),'utf8'));assert.equal(db.prepare('SELECT count(*) n FROM identifier_verification WHERE verified=1').get().n,5);
+ const {task_code,...after}=db.prepare("SELECT * FROM tasks WHERE id='safety-check'").get();assert.deepEqual(after,{...before});assert.equal(db.prepare("SELECT body FROM comments WHERE id='safety-comment'").get().body,'Original comment');
+ db.exec("UPDATE tasks SET description='Later edit' WHERE id='safety-check'");db.exec("UPDATE tasks SET description=(SELECT description FROM system_backup_v85_tasks WHERE id=tasks.id) WHERE id='safety-check'");assert.equal(db.prepare("SELECT description FROM tasks WHERE id='safety-check'").get().description,before.description);db.close();
+});
+
+test('An owner handoff racing acknowledgement cannot acknowledge the new action',async()=>{
+ const{db,env,request}=context();const tid=(await request('/tasks',{method:'POST',body:{title:'Concurrent handoff',assignee:'engineer@demo.local'}})).data.id;
+ await request('/tasks/'+tid+'/urgent',{method:'POST',body:{action:'mark'}});
+ const batch=env.DB.batch;let changed=false;env.DB.batch=async statements=>{if(!changed){changed=true;db.prepare("UPDATE tasks SET assignee='admin@demo.local',primary_owner='admin@demo.local',next_action_owner='admin@demo.local' WHERE id=?").run(tid);}return batch(statements);};
+ assert.equal((await request('/tasks/'+tid+'/urgent',{method:'POST',who:'engineer@demo.local',body:{action:'acknowledge'}})).status,409);assert.equal(db.prepare('SELECT count(*) n FROM urgent_acknowledgements').get().n,0);assert.equal(db.prepare("SELECT count(*) n FROM urgent_events WHERE action='Acknowledged Reminder'").get().n,0);db.close();
 });
