@@ -72,8 +72,8 @@ test('Rendered Next Step uses Chinese copy and English statuses without exposing
  const task={id:'task',title:'No tasks yet',assignee:'engineer@demo.local',feasibility:'Confirmed',development_status:'In Development',qa_status:'Not Tested'};
  const workflow={phase:'development',role:'Engineering',owner:'engineer@demo.local',instruction:'Continue engineering work. Confirm merged to Stage and assign QA in one step, only when the build is available for testing.',actions:['progress','stage']};
  f.sandbox.taskFixture={task,workflow};const html=vm.runInContext('workflowCard(taskFixture,true)',f.sandbox);
- assert.match(html,/继续开发/);assert.match(html,/只有版本已上 Stage 并可测试/);assert.match(html,/data-stage-handoff hidden/);assert.match(html,/value="On Stage"/);assert.match(html,/Merged to Stage → QA/);assert.match(html,/轻点添加照片或文件/);assert.ok(!html.includes('phase="qa"'));
- f.language.set('en');const english=vm.runInContext('workflowCard(taskFixture,true)',f.sandbox);assert.match(english,/Continue engineering work\./);assert.match(english,/Tap to add photos or files/);assert.match(english,/data-stage-handoff hidden/);
+ assert.match(html,/继续开发/);assert.match(html,/只有版本已上 Stage 并可测试/);assert.match(html,/data-stage-handoff hidden/);assert.match(html,/value="On Stage"/);assert.match(html,/Merged to Stage → QA/);assert.match(html,/点击此处，再按 ⌘V \/ Ctrl\+V 粘贴图片/);assert.ok(!html.includes('phase="qa"'));
+ f.language.set('en');const english=vm.runInContext('workflowCard(taskFixture,true)',f.sandbox);assert.match(english,/Continue engineering work\./);assert.match(english,/Click here, then press ⌘V \/ Ctrl\+V to paste an image/);assert.match(english,/data-stage-handoff hidden/);
 });
 
 test('Language guide is offered only to enabled accounts, while Admin gets the account-control guide',()=>{
