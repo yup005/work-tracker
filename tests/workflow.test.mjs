@@ -8484,7 +8484,7 @@ test('Existing handed-off PM tasks migrate to Engineering without copying record
       sourceIndex(code, 'function editPmTask('),
     );
   assert.ok(!body.includes('workflowCard('), 'PM details no longer embed an Engineering workflow');
-  assert.match(code, /\$\{t\.pm_owner\s*\?\s*pmSourceDetails\(d,\s*writable\)/);
+  assert.match(code, /t\.pm_owner\s*\?\s*pmSourceDetails\(d,\s*writable\)/);
   db.close();
 });
 
@@ -8707,8 +8707,8 @@ test('Engineering detail hierarchy uses the original Next Step, exposes prior re
   const order = [
     'renderEngineeringTaskDescription(t)',
     'renderEngineeringTaskEvidence(writable, fileHTML)',
-    '${workflowCard(d,writable)}',
-    '${previousStageCard(d)}',
+    'workflowCard(d, writable)',
+    'previousStageCard(d)',
     'renderEngineeringTaskSettings(d, writable, needsDev, needsQa)',
     'renderEngineeringTaskInfo(d, writable, actions, defaultAction)',
   ];
