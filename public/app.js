@@ -2010,8 +2010,7 @@ function renderEngineeringTaskEvidence(writable, fileHTML) {
     ? '<input autocomplete="off" type="file" id="task-files" multiple hidden>'
     : '';
 
-  const fileList = fileHTML ||
-    `<span class="muted-note">${ui('No images added yet.')}</span>`;
+  const fileList = fileHTML || `<span class="muted-note">${ui('No images added yet.')}</span>`;
 
   const dropZone = writable
     ? [
