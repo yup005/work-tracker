@@ -669,7 +669,8 @@ function urgentControls(d) {
       ? '<button type="button" class="task-urgent-button is-urgent" data-urgent-action="cancel" title="Cancel Urgent" aria-label="Cancel Urgent">Urgent</button>'
       : '<span class="task-urgent-button is-urgent" title="Urgent reminder">Urgent</span>';
   } else if (!task.archived && !['done', 'archived'].includes(d.workflow.phase)) {
-    control = '<button type="button" class="task-urgent-button" data-urgent-action="mark">Mark as Urgent</button>';
+    control =
+      '<button type="button" class="task-urgent-button" data-urgent-action="mark">Mark as Urgent</button>';
   }
 
   return `<div class="task-urgent-controls">${control}</div>`;
