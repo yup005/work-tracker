@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { sourceIndex } from './source-index.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
@@ -1231,13 +1232,13 @@ test('Cards and List retain the same task identity, categories and sorting witho
   const code = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8'),
     sandbox = { document: { addEventListener() {} }, console };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const taskTitle=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(
-    code.slice(code.indexOf('const taskTitle='), code.indexOf('function setView(')),
+    code.slice(sourceIndex(code, 'const taskTitle='), sourceIndex(code, 'function setView(')),
     sandbox,
   );
   vm.runInContext(
-    code.slice(code.indexOf('const priorityRank='), code.indexOf('function renderDaily(')),
+    code.slice(sourceIndex(code, 'const priorityRank='), sourceIndex(code, 'function renderDaily(')),
     sandbox,
   );
   const task = {
@@ -3177,7 +3178,7 @@ test('Guides adapt to work groups while older confirmations suppress update prom
   const code = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   const sandbox = { document: { addEventListener() {} }, console };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const taskTitle=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(`state.instructions=${JSON.stringify(current)}`, sandbox);
   assert.equal(
     vm.runInContext('instructionFor("dashboard")', sandbox),
@@ -3490,7 +3491,7 @@ test('Highlighted Reply opens the existing composer inline with an escaped paren
     console,
   };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const taskTitle=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(
     `state.user={email:'admin@demo.local',role:'admin',groups:['QA']};state.users=[];state.detailData={task:{archived:0},comments:[{id:'parent-id',actor_email:'engineer@demo.local',body:'<script>scope</script>'}]};startCommentReply('parent-id');`,
     sandbox,
@@ -3539,11 +3540,11 @@ test('Inline private activity retries failed images against the saved entry and 
     showToast() {},
   };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const api=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const api=')), sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('let pendingPrivateActivityFiles=[];'),
-      code.indexOf('function renderPrivateDetail(d){'),
+      sourceIndex(code, 'let pendingPrivateActivityFiles=[];'),
+      sourceIndex(code, 'function renderPrivateDetail(d){'),
     ),
     sandbox,
   );
@@ -3578,7 +3579,7 @@ test('Board next action states the required step alongside its owner', () => {
   };
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(code.indexOf('function boardNextAction('), code.indexOf('function renderBoard()')),
+    code.slice(sourceIndex(code, 'function boardNextAction('), sourceIndex(code, 'function renderBoard()')),
     sandbox,
   );
   assert.equal(
@@ -3775,8 +3776,8 @@ test('Project overview status changes require confirmation and preserve child-ta
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('function confirmPrivateTaskStatus('),
-      code.indexOf("document.addEventListener('click',ev=>{const trigger="),
+      sourceIndex(code, 'function confirmPrivateTaskStatus('),
+      sourceIndex(code, "document.addEventListener('click',ev=>{const trigger="),
     ),
     sandbox,
   );
@@ -3823,15 +3824,15 @@ test('Unified drop areas link files to the selected comment, activity or general
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf("document.addEventListener('drop',"),
-      code.indexOf('let pendingActivityFiles='),
+      sourceIndex(code, "document.addEventListener('drop',"),
+      sourceIndex(code, 'let pendingActivityFiles='),
     ),
     sandbox,
   );
   vm.runInContext(
     code.slice(
-      code.indexOf('function evidencePaste('),
-      code.indexOf(
+      sourceIndex(code, 'function evidencePaste('),
+      sourceIndex(code, 
         "document.addEventListener('change',ev=>{\n if(ev.target.matches('#detail-content .task-field'))",
       ),
     ),
@@ -3869,8 +3870,8 @@ test('Board QA filters group detailed outcomes and only offer confirmed Stage wo
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('function matchesBoardQA('),
-      code.indexOf('function filterBoardTasks('),
+      sourceIndex(code, 'function matchesBoardQA('),
+      sourceIndex(code, 'function filterBoardTasks('),
     ),
     sandbox,
   );
@@ -3909,8 +3910,8 @@ test('Board filters combine with search and clear individually without changing 
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('const boardFilterFields='),
-      code.indexOf('function renderBoardFilters('),
+      sourceIndex(code, 'const boardFilterFields='),
+      sourceIndex(code, 'function renderBoardFilters('),
     ),
     sandbox,
   );
@@ -4262,7 +4263,7 @@ test('Combined-group UI scopes guides and capabilities to the selected perspecti
   const code = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8'),
     sandbox = { document: { addEventListener() {} }, console };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const taskTitle=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   for (const group of ['Engineering', 'QA', 'Design']) {
     const user = { email: 'mixed@example.com', role: 'member', groups: [group, 'Management'] },
       guides = instructionGuides(user);
@@ -4326,11 +4327,11 @@ test('Perspective switching protects an unfinished draft and clears the prior pr
     },
   };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const taskTitle=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('let workspaceSwitchBusy=false;'),
-      code.indexOf('function labelMobileTables('),
+      sourceIndex(code, 'let workspaceSwitchBusy=false;'),
+      sourceIndex(code, 'function labelMobileTables('),
     ),
     sandbox,
   );
@@ -4368,8 +4369,8 @@ test('A stale reload cannot overwrite the selected perspective after a mode chan
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('async function reload(){'),
-      code.indexOf('let workspaceSwitchBusy=false;'),
+      sourceIndex(code, 'async function reload(){'),
+      sourceIndex(code, 'let workspaceSwitchBusy=false;'),
     ),
     sandbox,
   );
@@ -4425,8 +4426,8 @@ test('Team overview renders shared Engineering activity with its images in viewi
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('async function loadManagerOverview(){'),
-      code.indexOf('function parentTaskSelect('),
+      sourceIndex(code, 'async function loadManagerOverview(){'),
+      sourceIndex(code, 'function parentTaskSelect('),
     ),
     sandbox,
   );
@@ -4749,18 +4750,18 @@ test('Private activity forms expose completion without a status selector or a pr
     evidencePicker: () => '',
   };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const api=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const api=')), sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('function completeTaskControl('),
-      code.indexOf('function syncOfficeRecurrence('),
+      sourceIndex(code, 'function completeTaskControl('),
+      sourceIndex(code, 'function syncOfficeRecurrence('),
     ),
     sandbox,
   );
   vm.runInContext(
     code.slice(
-      code.indexOf('function privateActivityComposer('),
-      code.indexOf('async function savePrivateActivity('),
+      sourceIndex(code, 'function privateActivityComposer('),
+      sourceIndex(code, 'async function savePrivateActivity('),
     ),
     sandbox,
   );
@@ -4799,8 +4800,8 @@ test('Redesigned cards and activity entries open the original Engineering, priva
     editOffice: (id) => calls.push(['activity', id]),
   };
   vm.createContext(sandbox);
-  const start = code.indexOf("document.addEventListener('click',ev=>{\n const download="),
-    end = code.indexOf("document.addEventListener('change',ev=>{", start);
+  const start = sourceIndex(code, "document.addEventListener('click',ev=>{\n const download="),
+    end = sourceIndex(code, "document.addEventListener('change',ev=>{", start);
   vm.runInContext(code.slice(start, end), sandbox);
   for (const [selector, dataset] of [
     ['[data-row-task]', { rowTask: 'engineering-id' }],
@@ -4848,18 +4849,18 @@ test('Opening a private task immediately renders its separate Overview and activ
     todayDate: () => '2026-10-12',
   };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const taskTitle=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('function recurrenceBadge('),
-      code.indexOf('function syncOfficeRecurrence('),
+      sourceIndex(code, 'function recurrenceBadge('),
+      sourceIndex(code, 'function syncOfficeRecurrence('),
     ),
     sandbox,
   );
   vm.runInContext(
     code.slice(
-      code.indexOf('let pendingPrivateActivityFiles=[];'),
-      code.indexOf('function renderPersonalReminders('),
+      sourceIndex(code, 'let pendingPrivateActivityFiles=[];'),
+      sourceIndex(code, 'function renderPersonalReminders('),
     ),
     sandbox,
   );
@@ -4934,7 +4935,7 @@ test('Board stage tabs combine with search and existing filters, and Clear all p
   const sandbox = { state, e: (x) => String(x ?? ''), who: (x) => x };
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(code.indexOf('const boardFilterFields='), code.indexOf('function renderBoard(){')),
+    code.slice(sourceIndex(code, 'const boardFilterFields='), sourceIndex(code, 'function renderBoard(){')),
     sandbox,
   );
   assert.deepEqual(
@@ -4981,9 +4982,9 @@ test('Version cards retain expandable planning controls and locked release snaps
     todayDate: () => '2026-10-12',
   };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const taskTitle=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(
-    code.slice(code.indexOf('let releaseList='), code.indexOf('async function saveRelease(')),
+    code.slice(sourceIndex(code, 'let releaseList='), sourceIndex(code, 'async function saveRelease(')),
     sandbox,
   );
   const planned = {
@@ -5076,8 +5077,8 @@ test('Release confirmation feedback accepts mixed selection, carries unfinished 
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('function updateReleaseReadiness(){'),
-      code.indexOf('function releaseDetail('),
+      sourceIndex(code, 'function updateReleaseReadiness(){'),
+      sourceIndex(code, 'function releaseDetail('),
     ),
     sandbox,
   );
@@ -5107,15 +5108,15 @@ test('Reference-style task cards show the current QA owner without changing the 
   const code = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   const sandbox = { document: { addEventListener() {} }, console, empty: () => '' };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const taskTitle=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(
-    code.slice(code.indexOf('function boardNextAction('), code.indexOf('const boardFilterFields=')),
+    code.slice(sourceIndex(code, 'function boardNextAction('), sourceIndex(code, 'const boardFilterFields=')),
     sandbox,
   );
   vm.runInContext(
     code.slice(
-      code.indexOf('function boardPhaseBadge('),
-      code.indexOf(
+      sourceIndex(code, 'function boardPhaseBadge('),
+      sourceIndex(code, 
         "document.addEventListener('click',ev=>{const button=ev.target.closest('[data-board-layout]')",
       ),
     ),
@@ -5188,7 +5189,7 @@ test('Board layout is in its heading and stage tabs do not add redundant filter 
   };
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(code.indexOf('const boardFilterFields='), code.indexOf('function boardPhaseBadge(')),
+    code.slice(sourceIndex(code, 'const boardFilterFields='), sourceIndex(code, 'function boardPhaseBadge(')),
     sandbox,
   );
   let html = sandbox.renderBoard();
@@ -5272,15 +5273,15 @@ test('Creating an Engineering task uploads references and retries only failed fi
   };
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(code.indexOf('let pendingNewTaskFiles='), code.indexOf('let editingOfficeId=')),
+    code.slice(sourceIndex(code, 'let pendingNewTaskFiles='), sourceIndex(code, 'let editingOfficeId=')),
     sandbox,
   );
   vm.runInContext(
-    code.slice(code.indexOf('function queueEvidence('), code.indexOf('function evidencePaste(')),
+    code.slice(sourceIndex(code, 'function queueEvidence('), sourceIndex(code, 'function evidencePaste(')),
     sandbox,
   );
   vm.runInContext(
-    code.slice(code.indexOf('async function saveModal('), code.indexOf('async function saveTask(')),
+    code.slice(sourceIndex(code, 'async function saveModal('), sourceIndex(code, 'async function saveTask(')),
     sandbox,
   );
   sandbox.files = [
@@ -5353,16 +5354,16 @@ test('New-task attachments route file selection, drop and paste to the draft bef
     queueEvidence: (files, kind) => queued.push({ files, kind }),
   };
   vm.createContext(sandbox);
-  const paste = code.indexOf("document.addEventListener('paste',ev=>{");
-  vm.runInContext(code.slice(paste, code.indexOf('function passwordModal(', paste)), sandbox);
+  const paste = sourceIndex(code, "document.addEventListener('paste',ev=>{");
+  vm.runInContext(code.slice(paste, sourceIndex(code, 'function passwordModal(', paste)), sandbox);
   let prevented = 0;
   handlers.paste({
     clipboardData: { files: [file] },
     target: { closest: (s) => (s === '#modal-content.task-create-modal' ? {} : null) },
     preventDefault: () => prevented++,
   });
-  const drop = code.indexOf("document.addEventListener('drop',ev=>{");
-  vm.runInContext(code.slice(drop, code.indexOf('let pendingActivityFiles=', drop)), sandbox);
+  const drop = sourceIndex(code, "document.addEventListener('drop',ev=>{");
+  vm.runInContext(code.slice(drop, sourceIndex(code, 'let pendingActivityFiles=', drop)), sandbox);
   handlers.drop({
     dataTransfer: { files: [file] },
     target: {
@@ -5370,13 +5371,13 @@ test('New-task attachments route file selection, drop and paste to the draft bef
     },
     preventDefault: () => prevented++,
   });
-  const change = code.indexOf(
+  const change = sourceIndex(code, 
     "document.addEventListener('change',ev=>{\n if(ev.target.matches('#detail-content .task-field'))",
   );
   vm.runInContext(
     code.slice(
       change,
-      code.indexOf(
+      sourceIndex(code, 
         "document.addEventListener('click',ev=>{const b=ev.target.closest('[data-delete-attachment]')",
         change,
       ),
@@ -5443,13 +5444,13 @@ test('Daily Work keeps one lower project creation entry, including before the fi
   };
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(code.indexOf('function renderDaily('), code.indexOf('async function loadDaily(')),
+    code.slice(sourceIndex(code, 'function renderDaily('), sourceIndex(code, 'async function loadDaily(')),
     sandbox,
   );
   vm.runInContext(
     code.slice(
-      code.indexOf('function renderPrivateWork('),
-      code.indexOf('function dailyActivitySection('),
+      sourceIndex(code, 'function renderPrivateWork('),
+      sourceIndex(code, 'function dailyActivitySection('),
     ),
     sandbox,
   );
@@ -5542,8 +5543,8 @@ test('Engineering ownership views distinguish involvement, current action and pu
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('const boardFilterFields='),
-      code.indexOf('function renderBoardFilters('),
+      sourceIndex(code, 'const boardFilterFields='),
+      sourceIndex(code, 'function renderBoardFilters('),
     ),
     sandbox,
   );
@@ -5723,7 +5724,7 @@ test('+ Plan creates a future version without replacing or rerendering the open 
   };
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(code.indexOf('let releaseList='), code.indexOf('function releaseItems(')),
+    code.slice(sourceIndex(code, 'let releaseList='), sourceIndex(code, 'function releaseItems(')),
     sandbox,
   );
   sandbox.loadReleases = async () => loaded++;
@@ -5990,15 +5991,15 @@ test('New activity menus omit completed tasks while historical editing retains o
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('function privateActivityAssociation('),
-      code.indexOf('async function openPrivateActivity('),
+      sourceIndex(code, 'function privateActivityAssociation('),
+      sourceIndex(code, 'async function openPrivateActivity('),
     ),
     sandbox,
   );
   vm.runInContext(
     code.slice(
-      code.indexOf('function privateActivityComposer('),
-      code.indexOf('async function savePrivateActivity('),
+      sourceIndex(code, 'function privateActivityComposer('),
+      sourceIndex(code, 'async function savePrivateActivity('),
     ),
     sandbox,
   );
@@ -6096,8 +6097,8 @@ test('Private activity rows show recorded work without legacy statuses while Eng
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('function dailyActivitySection('),
-      code.indexOf('let pendingNewTaskFiles='),
+      sourceIndex(code, 'function dailyActivitySection('),
+      sourceIndex(code, 'let pendingNewTaskFiles='),
     ),
     sandbox,
   );
@@ -6213,8 +6214,8 @@ test('Dashboard omits private activity results and retains shared test outcomes'
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('function renderDashboard('),
-      code.indexOf('function isNextActionRelevant('),
+      sourceIndex(code, 'function renderDashboard('),
+      sourceIndex(code, 'function isNextActionRelevant('),
     ),
     sandbox,
   );
@@ -6269,15 +6270,15 @@ test('My account Change password opens and submits the self-change form, while A
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('function passwordModal('),
-      code.indexOf("$('#change-password').onclick"),
+      sourceIndex(code, 'function passwordModal('),
+      sourceIndex(code, "$('#change-password').onclick"),
     ),
     sandbox,
   );
   vm.runInContext(
     code.slice(
-      code.indexOf('function accountMenu(){'),
-      code.indexOf(
+      sourceIndex(code, 'function accountMenu(){'),
+      sourceIndex(code, 
         "document.addEventListener('change',ev=>{if(ev.target.id==='account-avatar-file')",
       ),
     ),
@@ -6453,8 +6454,8 @@ test('Avatar updates refresh photo elements without rerendering or discarding an
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('async function saveAccountAvatar('),
-      code.indexOf('function accountMenu(){'),
+      sourceIndex(code, 'async function saveAccountAvatar('),
+      sourceIndex(code, 'function accountMenu(){'),
     ),
     sandbox,
   );
@@ -6784,9 +6785,9 @@ test('Version task picker separates readiness, names future reservations and omi
   const code = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8'),
     sandbox = { document: { addEventListener() {}, querySelectorAll: () => [] }, console };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const taskTitle=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(
-    code.slice(code.indexOf('let releaseList='), code.indexOf('async function submitRelease(')),
+    code.slice(sourceIndex(code, 'let releaseList='), sourceIndex(code, 'async function submitRelease(')),
     sandbox,
   );
   vm.runInContext(
@@ -6832,11 +6833,11 @@ test('Actual release confirmation reviews delivered and deferred tasks before se
     showToast() {},
   };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const api=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const api=')), sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('let releaseList='),
-      code.indexOf(
+      sourceIndex(code, 'let releaseList='),
+      sourceIndex(code, 
         "document.addEventListener('click',ev=>{const button=ev.target.closest('[data-edit-user]')",
       ),
     ),
@@ -7028,8 +7029,8 @@ test('Engineering and QA dropdowns exclude out-of-group Admin and keep historica
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('function memberCanWork('),
-      code.indexOf('function linkedEvidencePicker('),
+      sourceIndex(code, 'function memberCanWork('),
+      sourceIndex(code, 'function linkedEvidencePicker('),
     ),
     sandbox,
   );
@@ -7056,15 +7057,15 @@ test('Legacy CRM default is omitted from task cards and new requests no longer i
   const code = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8'),
     sandbox = { document: { addEventListener() {} }, console };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const taskTitle=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(
-    code.slice(code.indexOf('function boardNextAction('), code.indexOf('const boardFilterFields=')),
+    code.slice(sourceIndex(code, 'function boardNextAction('), sourceIndex(code, 'const boardFilterFields=')),
     sandbox,
   );
   vm.runInContext(
     code.slice(
-      code.indexOf('function boardPhaseBadge('),
-      code.indexOf(
+      sourceIndex(code, 'function boardPhaseBadge('),
+      sourceIndex(code, 
         "document.addEventListener('click',ev=>{const button=ev.target.closest('[data-board-layout]')",
       ),
     ),
@@ -8141,8 +8142,8 @@ test('Workload merges work categories without duplicating activity totals or add
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('function workloadModel('),
-      code.indexOf('async function loadWorkload('),
+      sourceIndex(code, 'function workloadModel('),
+      sourceIndex(code, 'async function loadWorkload('),
     ),
     sandbox,
   );
@@ -8244,7 +8245,7 @@ test('PM readiness distinguishes a saved design from requested details that stil
     };
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(code.indexOf('function pmCanEdit('), code.indexOf('function renderPmDetail(')),
+    code.slice(sourceIndex(code, 'function pmCanEdit('), sourceIndex(code, 'function renderPmDetail(')),
     sandbox,
   );
   const d = {
@@ -8430,8 +8431,8 @@ test('Existing handed-off PM tasks migrate to Engineering without copying record
   assert.equal(after.pm_handoffs.length, before.pm_handoffs.length);
   const code = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8'),
     body = code.slice(
-      code.indexOf('function renderPmDetail('),
-      code.indexOf('function editPmTask('),
+      sourceIndex(code, 'function renderPmDetail('),
+      sourceIndex(code, 'function editPmTask('),
     );
   assert.ok(!body.includes('workflowCard('), 'PM details no longer embed an Engineering workflow');
   assert.match(code, /\$\{t.pm_owner\?pmSourceDetails\(d,writable\)/);
@@ -8650,7 +8651,7 @@ test('Stage deadline calculations handle month/year boundaries and preserve unkn
 
 test('Engineering detail hierarchy uses the original Next Step, exposes prior results and collapses supplemental settings', () => {
   const code = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8'),
-    body = code.slice(code.indexOf('function renderDetail('), code.indexOf('function changeTab('));
+    body = code.slice(sourceIndex(code, 'function renderDetail('), sourceIndex(code, 'function changeTab('));
   const order = [
     'task-description-block',
     'task-evidence',
@@ -8666,13 +8667,13 @@ test('Engineering detail hierarchy uses the original Next Step, exposes prior re
   assert.ok(body.includes('task-manage'));
   const sandbox = { document: { addEventListener() {}, querySelectorAll: () => [] }, console };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const taskTitle=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   sandbox.canUndoPreviousStage = () => false;
   sandbox.attachmentTiles = (files) => files.map((f) => f.filename).join(' ');
   vm.runInContext(
     code.slice(
-      code.indexOf('function previousStageSnapshot('),
-      code.indexOf('function renderDetail('),
+      sourceIndex(code, 'function previousStageSnapshot('),
+      sourceIndex(code, 'function renderDetail('),
     ),
     sandbox,
   );
@@ -8802,7 +8803,7 @@ test('New-task group defaults remain overridable and Engineering may request PM 
     sandbox = {};
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(code.indexOf('function defaultNewWorkKind('), code.indexOf('function modal(')),
+    code.slice(sourceIndex(code, 'function defaultNewWorkKind('), sourceIndex(code, 'function modal(')),
     sandbox,
   );
   for (const [groups, kind] of [
@@ -9142,11 +9143,11 @@ test('Closed panels and rendered defaults cannot trigger the task discard guard,
     },
   };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const taskTitle=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('function captureTaskDraftBaseline('),
-      code.indexOf('function askDiscardTask('),
+      sourceIndex(code, 'function captureTaskDraftBaseline('),
+      sourceIndex(code, 'function askDiscardTask('),
     ),
     sandbox,
   );
@@ -9183,7 +9184,7 @@ test('Stage colors follow real QA return, retest, delivery and completion withou
     sandbox = {};
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(code.indexOf('function taskStageTone('), code.indexOf('const activeTaskDue=')),
+    code.slice(sourceIndex(code, 'function taskStageTone('), sourceIndex(code, 'const activeTaskDue=')),
     sandbox,
   );
   const tid = (
@@ -9600,8 +9601,8 @@ test('Unassigned Engineering Backlog stays separate and its creator can assign a
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('function renderBoardSections('),
-      code.indexOf('function boardPhaseBadge('),
+      sourceIndex(code, 'function renderBoardSections('),
+      sourceIndex(code, 'function boardPhaseBadge('),
     ),
     sandbox,
   );
@@ -9664,14 +9665,14 @@ test('Chinese composition cannot redraw the search or trigger Enter actions befo
     FormData,
   };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const taskTitle=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext('let filterTimer;', sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('function handleFilterInput('),
-      code.indexOf(
+      sourceIndex(code, 'function handleFilterInput('),
+      sourceIndex(code, 
         "$('#panel-shade').addEventListener",
-        code.indexOf('function handleFilterInput('),
+        sourceIndex(code, 'function handleFilterInput('),
       ),
     ),
     sandbox,
@@ -9723,7 +9724,7 @@ test('Read caching deduplicates requests, retains independent copies and is isol
     },
   };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const taskTitle=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(
     "state.user={email:'engineer@demo.local',role:'member',groups:['Engineering']};",
     sandbox,
@@ -9788,7 +9789,7 @@ test('Page instructions consolidate to one brief card and one explicit confirmat
   const code = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8'),
     sandbox = { document: { addEventListener() {} }, console };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const taskTitle=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   const guides = instructionGuides({ role: 'member', groups: ['Engineering'] });
   vm.runInContext(`state.instructions={guides:${JSON.stringify(guides)},acknowledged:[]}`, sandbox);
   const html = vm.runInContext('instructionFor("engineering-task")', sandbox);
@@ -9842,8 +9843,8 @@ test('Board focus separates feasibility, development, PR review and Stage deploy
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('const boardFilterFields='),
-      code.indexOf('function renderBoardFilters('),
+      sourceIndex(code, 'const boardFilterFields='),
+      sourceIndex(code, 'function renderBoardFilters('),
     ),
     sandbox,
   );
@@ -9900,8 +9901,8 @@ test('Daily Engineering Activity stays collapsed, avoids the initial request and
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('async function loadBoardActivity('),
-      code.indexOf('function renderPrivateWork('),
+      sourceIndex(code, 'async function loadBoardActivity('),
+      sourceIndex(code, 'function renderPrivateWork('),
     ),
     sandbox,
   );
@@ -9953,7 +9954,7 @@ test('Daily Engineering Activity stays collapsed, avoids the initial request and
     };
   vm.createContext(renderer);
   vm.runInContext(
-    code.slice(code.indexOf('const boardFilterFields='), code.indexOf('function boardPhaseBadge(')),
+    code.slice(sourceIndex(code, 'const boardFilterFields='), sourceIndex(code, 'function boardPhaseBadge(')),
     renderer,
   );
   let html = renderer.renderBoard();
@@ -9989,8 +9990,8 @@ test('Stage correction previews actual restored values, stays in history and res
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('function undoStageContext('),
-      code.indexOf('function discussionRecipientPicker('),
+      sourceIndex(code, 'function undoStageContext('),
+      sourceIndex(code, 'function discussionRecipientPicker('),
     ),
     sandbox,
   );
@@ -10065,8 +10066,8 @@ test('Stage correction previews actual restored values, stays in history and res
   sandbox.attachmentTiles = () => '';
   vm.runInContext(
     code.slice(
-      code.indexOf('function previousStageSnapshot('),
-      code.indexOf('function renderDetail('),
+      sourceIndex(code, 'function previousStageSnapshot('),
+      sourceIndex(code, 'function renderDetail('),
     ),
     sandbox,
   );
@@ -10103,8 +10104,8 @@ test('Undo clarification retains explicit confirmation, reason and revision with
   vm.createContext(sandbox);
   vm.runInContext(
     code.slice(
-      code.indexOf('function undoStageContext('),
-      code.indexOf('function trackingOverview('),
+      sourceIndex(code, 'function undoStageContext('),
+      sourceIndex(code, 'function trackingOverview('),
     ),
     sandbox,
   );
@@ -10149,11 +10150,11 @@ test('Attachment areas focus without opening a picker; only Choose files opens t
     $: (id) => ({ click: () => opened.push(id) }),
   };
   vm.createContext(sandbox);
-  const start = code.indexOf(
+  const start = sourceIndex(code, 
     "document.addEventListener('click',ev=>{const zone=ev.target.closest('.paste-target')",
   );
   vm.runInContext(
-    code.slice(start, code.indexOf("document.addEventListener('dragover'", start)),
+    code.slice(start, sourceIndex(code, "document.addEventListener('dragover'", start)),
     sandbox,
   );
   const target = {
@@ -10186,7 +10187,7 @@ test('Activity labels distinguish work records from stages while preserving orig
     sandbox = { e: (x) => String(x) };
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(code.indexOf('const activityTypeLabels='), code.indexOf('const inputSelect=')),
+    code.slice(sourceIndex(code, 'const activityTypeLabels='), sourceIndex(code, 'const inputSelect=')),
     sandbox,
   );
   const keys = ['Requirement', 'Development', 'PR', 'Merge', 'Deployment', 'Feedback', 'Other'];
@@ -10645,9 +10646,9 @@ test('Overdue release plans keep the original plan date and default actual relea
     todayDate: () => '2026-10-15',
   };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const taskTitle=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(
-    code.slice(code.indexOf('let releaseList='), code.indexOf('async function saveRelease(')),
+    code.slice(sourceIndex(code, 'let releaseList='), sourceIndex(code, 'async function saveRelease(')),
     sandbox,
   );
   vm.runInContext(
@@ -11015,9 +11016,9 @@ test('Task identifiers appear only in details while board search still matches t
   const code = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8'),
     sandbox = { document: { addEventListener() {} }, console };
   vm.createContext(sandbox);
-  vm.runInContext(code.slice(0, code.indexOf('const taskTitle=')), sandbox);
+  vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(
-    code.slice(code.indexOf('const priorityRank='), code.indexOf('function renderDaily(')),
+    code.slice(sourceIndex(code, 'const priorityRank='), sourceIndex(code, 'function renderDaily(')),
     sandbox,
   );
   const t = {

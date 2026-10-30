@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { sourceIndex } from './source-index.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -198,7 +199,7 @@ test('System copy escapes named values, keeps technical terms in English and nev
   assert.match(html, /&lt;img/);
   assert.match(html, /data-ui-values=/);
   assert.match(html, /Assignee/);
-  vm.runInContext(appCode.slice(0, appCode.indexOf('const taskTitle=')), f.sandbox);
+  vm.runInContext(appCode.slice(0, sourceIndex(appCode, 'const taskTitle=')), f.sandbox);
   const result = vm.runInContext(
     'projectTaskList([{id:"task",title:"No tasks yet",description:"Tap to add photos or files",status:"Completed"}],false,"project")',
     f.sandbox,
@@ -275,13 +276,13 @@ test('Language asset loads before the app; controls start hidden and remain acce
 });
 test('Rendered Next Step uses Chinese copy and English statuses without exposing QA before the Stage handoff', () => {
   const f = fixture();
-  vm.runInContext(appCode.slice(0, appCode.indexOf('const taskTitle=')), f.sandbox);
+  vm.runInContext(appCode.slice(0, sourceIndex(appCode, 'const taskTitle=')), f.sandbox);
   f.sandbox.pendingActivityFiles = [];
   f.sandbox.pendingCommentFiles = [];
   vm.runInContext(
     appCode.slice(
-      appCode.indexOf('function memberCanWork('),
-      appCode.indexOf('function memberOptions('),
+      sourceIndex(appCode, 'function memberCanWork('),
+      sourceIndex(appCode, 'function memberOptions('),
     ),
     f.sandbox,
   );
@@ -356,8 +357,8 @@ test('Refreshing the workspace applies the current account permission and update
   vm.createContext(sandbox);
   vm.runInContext(
     appCode.slice(
-      appCode.indexOf('async function reload(){'),
-      appCode.indexOf('let workspaceSwitchBusy=false;'),
+      sourceIndex(appCode, 'async function reload(){'),
+      sourceIndex(appCode, 'let workspaceSwitchBusy=false;'),
     ),
     sandbox,
   );
