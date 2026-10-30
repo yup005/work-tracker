@@ -8705,8 +8705,8 @@ test('Engineering detail hierarchy uses the original Next Step, exposes prior re
       sourceIndex(code, 'function changeTab('),
     );
   const order = [
-    'task-description-block',
-    'task-evidence',
+    'renderEngineeringTaskDescription(t)',
+    'renderEngineeringTaskEvidence(writable, fileHTML)',
     '${workflowCard(d,writable)}',
     '${previousStageCard(d)}',
     'task-settings',
