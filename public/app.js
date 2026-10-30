@@ -172,7 +172,11 @@ function updateProfileAvatars() {
   const menu = $('#account-menu');
   if (menu)
     menu.innerHTML = state.user
-      ? `<span class="account-avatar">${avatarContents(state.user.email)}</span><span class="account-caption"><strong>${e(state.user.display_name || who(state.user.email))}</strong><small>${e([...(state.user.role === 'admin' ? ['Admin'] : []), ...(state.user.groups || []).map((g) => (g === 'Management' ? 'Manager' : g))].join(' · '))}</small></span>`
+      ? [
+          `<span class="account-avatar">${avatarContents(state.user.email)}</span><span class="account-caption"><strong>${e(state.user.display_name || who(state.user.email))}`,
+          `</strong><small>${e([...(state.user.role === 'admin' ? ['Admin'] : []), ...(state.user.groups || []).map((g) => (g === 'Management' ? 'Manager' : g))].join(' · '))}`,
+          `</small></span>`,
+        ].join('')
       : 'Account';
 }
 document.addEventListener(
@@ -298,7 +302,10 @@ const workspaceDayLabel = () =>
     timeZone: 'UTC',
   });
 const heading = (eyebrow, title, sub, actions = '') =>
-  `<div class="page-heading"><div><div class="eyebrow">${e(eyebrow)}</div><h1 class="page-title">${e(title)}</h1><div class="subtitle">${ui(sub)}</div></div><div class="heading-actions">${actions}</div></div>${instructionFor(state.view)}`;
+  [
+    `<div class="page-heading"><div><div class="eyebrow">${e(eyebrow)}</div><h1 class="page-title">${e(title)}</h1><div class="subtitle">${ui(sub)}`,
+    `</div></div><div class="heading-actions">${actions}</div></div>${instructionFor(state.view)}`,
+  ].join('');
 function categoryTag(value) {
   const name = value || 'General';
   let hash = 0;
@@ -318,7 +325,13 @@ function categoryPicker(value, { id = '', key = '', enabled = true, filter = fal
       ...(!filter ? [value] : []),
     ]),
   ].filter(Boolean);
-  return `<div class="field category-field"><label ${id ? `for="${e(id)}"` : ''}>Category</label><select ${id ? `id="${e(id)}"` : ''} ${key ? `class="task-field" data-key="${e(key)}"` : ''} data-category-picker data-category-current="${e(value)}" ${enabled ? '' : 'disabled'}>${filter ? '<option value="all">Any category</option>' : ''}${option(categories, value)}${enabled && canWrite() ? '<option value="__add_category__">+ Add category</option>' : ''}</select><div class="category-create" hidden><input autocomplete="off" type="text" maxlength="80" aria-label="New category name" placeholder="${e(tr('e.g. Inventory'))}" data-ui-placeholder="e.g. Inventory"><div class="category-create-actions"><button type="button" class="btn tiny" data-add-category>Add category</button><button type="button" class="btn tiny" data-cancel-category>Cancel</button></div><p class="category-error" role="alert"></p></div></div>`;
+  return [
+    `<div class="field category-field"><label ${id ? `for="${e(id)}"` : ''}>Category</label><select ${id ? `id="${e(id)}"` : ''} ${key ? `class="task-field" data-key="${e(key)}"` : ''} data-category-picker `,
+    `data-category-current="${e(value)}" ${enabled ? '' : 'disabled'}>${filter ? '<option value="all">Any category</option>' : ''}${option(categories, value)}${enabled && canWrite() ? '<option value="__add_category__">+ Add category</option>' : ''}`,
+    `</select><div class="category-create" hidden><input autocomplete="off" type="text" maxlength="80" aria-label="New category name" placeholder="${e(tr('e.g. Inventory'))}" data-ui-placeholder="e.g. Inventory">`,
+    `<div class="category-create-actions"><button type="button" class="btn tiny" data-add-category>Add category</button><button type="button" class="btn tiny" data-cancel-category>Cancel`,
+    `</button></div><p class="category-error" role="alert"></p></div></div>`,
+  ].join('');
 }
 document.addEventListener(
   'change',
@@ -386,7 +399,12 @@ document.addEventListener('keydown', (ev) => {
 const empty = (title, sub) => `<div class="empty"><strong>${ui(title)}</strong>${ui(sub)}</div>`;
 function instructionCard(g, review = false) {
   const acknowledged = state.instructions.acknowledged.includes(g.id);
-  return `<aside class="instruction-card" data-instruction-card="${e(g.id)}" ${review ? 'data-guide-review' : ''} aria-label="${e(tr(g.title))} instructions"><div class="instruction-header"><span class="instruction-icon" aria-hidden="true">i</span><h3>${ui(g.title)}</h3>${review && acknowledged ? '<span class="muted-note">Reviewed</span>' : ''}</div><ol>${g.steps.map((s) => `<li>${ui(s)}</li>`).join('')}</ol>${!acknowledged ? `<div class="instruction-footer"><span class="muted-note">${ui('Stays here until you confirm you’ve read it.')}</span><button type="button" class="btn" data-ack-instruction="${e(g.id)}">I understand</button></div>` : ''}</aside>`;
+  return [
+    `<aside class="instruction-card" data-instruction-card="${e(g.id)}" ${review ? 'data-guide-review' : ''} aria-label="${e(tr(g.title))} instructions">`,
+    `<div class="instruction-header"><span class="instruction-icon" aria-hidden="true">i</span><h3>${ui(g.title)}</h3>${review && acknowledged ? '<span class="muted-note">Reviewed</span>' : ''}`,
+    `</div><ol>${g.steps.map((s) => `<li>${ui(s)}</li>`).join('')}</ol>${!acknowledged ? `<div class="instruction-footer"><span class="muted-note">${ui('Stays here until you confirm you’ve read it.')}</span><button type="button" class="btn" data-ack-instruction="${e(g.id)}">I understand</button></div>` : ''}`,
+    `</aside>`,
+  ].join('');
 }
 function surfaceGuideName(surface) {
   return (
@@ -423,12 +441,16 @@ function instructionFor(surface) {
       ) ||
       guides[0],
     ids = guides.map((g) => g.id);
-  return `<aside class="instruction-card compact-guide" data-instruction-group="${e(surface)}" aria-label="${e(surfaceGuideName(surface))} quick guide"><div class="instruction-header"><span class="instruction-icon" aria-hidden="true">i</span><h3>${ui(main.id.startsWith('workspace-update-') ? 'What changed' : 'Quick guide')} · ${e(surfaceGuideName(surface))}</h3></div><ol>${main.steps
-    .slice(0, 3)
-    .map((s) => `<li>${ui(s)}</li>`)
-    .join(
-      '',
-    )}</ol><div class="instruction-footer"><button type="button" class="account-link" data-open-usage-guide>${ui('Read full guide')}</button><button type="button" class="btn" data-ack-instructions="${e(JSON.stringify(ids))}">I understand</button></div></aside>`;
+  return [
+    `<aside class="instruction-card compact-guide" data-instruction-group="${e(surface)}" aria-label="${e(surfaceGuideName(surface))} quick guide">`,
+    `<div class="instruction-header"><span class="instruction-icon" aria-hidden="true">i</span><h3>${ui(main.id.startsWith('workspace-update-') ? 'What changed' : 'Quick guide')} · ${e(surfaceGuideName(surface))}`,
+    `</h3></div><ol>${main.steps
+      .slice(0, 3)
+      .map((s) => `<li>${ui(s)}</li>`)
+      .join('')}</ol><div class="instruction-footer">`,
+    `<button type="button" class="account-link" data-open-usage-guide>${ui('Read full guide')}</button><button type="button" class="btn" data-ack-instructions="${e(JSON.stringify(ids))}">I understand`,
+    `</button></div></aside>`,
+  ].join('');
 }
 function commentReplyLink(c, d) {
   const parent = d.comments.find((p) => p.id === c.reply_to);
@@ -449,7 +471,10 @@ function startQaReply(aid, focus = true) {
   state.replyActivity = aid;
   const context = $('#comment-reply-context');
   context.hidden = false;
-  context.innerHTML = `<div><strong>${ui('Reply to QA feedback from {person}', { person: who(a.actor_email) })}</strong><p>${e(a.notes.slice(0, 240))}</p></div><button type="button" class="account-link" data-cancel-comment-reply>Cancel reply</button>`;
+  context.innerHTML = [
+    `<div><strong>${ui('Reply to QA feedback from {person}', { person: who(a.actor_email) })}</strong><p>${e(a.notes.slice(0, 240))}</p>`,
+    `</div><button type="button" class="account-link" data-cancel-comment-reply>Cancel reply</button>`,
+  ].join('');
   const feedback = document.querySelector('[data-qa-feedback="' + aid + '"]');
   if (feedback) feedback.append(composer);
   else {
@@ -511,7 +536,24 @@ function projectTaskList(children, writable, projectId) {
         Number(a.status === 'Completed') - Number(b.status === 'Completed') ||
         a.title.localeCompare(b.title),
     );
-  return `<section class="project-task-list" aria-label="Related tasks"><div class="project-tasks-heading"><div><h3 class="card-title">Related tasks</h3><p class="muted-note">${ui('Open a task to view its details or log work.')}</p></div>${writable ? `<button class="btn" data-private-child="${e(projectId)}">+ Task</button>` : ''}</div>${tasks.length ? `<div class="project-task-columns"><span>TASK</span><span>STATUS</span></div>${tasks.map((t) => `<button type="button" class="project-task-row" data-private-open="${e(t.id)}" aria-label="Open ${e(t.title)}"><span class="project-task-copy"><strong>${e(t.title)}</strong>${t.description ? `<small>${e(t.description)}</small>` : ''}</span><span class="project-task-state">${badge(t.archived ? 'Archived' : t.status)}<span aria-hidden="true">›</span></span></button>`).join('')}` : `<p class="project-task-empty muted-note">${ui('No tasks yet. Add a task to break this project into smaller pieces of work.')}</p>`}</section>`;
+  return [
+    `<section class="project-task-list" aria-label="Related tasks"><div class="project-tasks-heading"><div><h3 class="card-title">Related tasks`,
+    `</h3><p class="muted-note">${ui('Open a task to view its details or log work.')}</p></div>${writable ? `<button class="btn" data-private-child="${e(projectId)}">+ Task</button>` : ''}`,
+    `</div>${
+      tasks.length
+        ? `<div class="project-task-columns"><span>TASK</span><span>STATUS</span></div>${tasks
+            .map((t) =>
+              [
+                `<button type="button" class="project-task-row" data-private-open="${e(t.id)}" aria-label="Open ${e(t.title)}"><span class="project-task-copy">`,
+                `<strong>${e(t.title)}</strong>${t.description ? `<small>${e(t.description)}</small>` : ''}</span><span class="project-task-state">${badge(t.archived ? 'Archived' : t.status)}`,
+                `<span aria-hidden="true">›</span></span></button>`,
+              ].join(''),
+            )
+            .join('')}`
+        : `<p class="project-task-empty muted-note">${ui('No tasks yet. Add a task to break this project into smaller pieces of work.')}</p>`
+    }`,
+    `</section>`,
+  ].join('');
 }
 function usageGuide() {
   if (!state.user) return;
@@ -530,14 +572,27 @@ function usageGuide() {
     sections = [...new Set(guides.map((g) => g.surface))].sort(
       (a, b) => Number(b === current) - Number(a === current),
     );
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>Usage guide</h2><button class="close" data-close="modal" aria-label="Close guide">×</button></div><p class="muted-note">${ui('Guides are grouped by page. Open a section to read it again; one confirmation covers that page.')}</p>${sections
+  $('#modal-content').innerHTML = [
+    [
+      `<div class="modal-head"><h2>Usage guide</h2><button class="close" data-close="modal" aria-label="Close guide">×`,
+      `</button></div><p class="muted-note">${ui('Guides are grouped by page. Open a section to read it again; one confirmation covers that page.')}`,
+    ].join(''),
+    `</p>${sections
       .map((surface) => {
         const topics = guides.filter((g) => g.surface === surface),
           pending = topics.filter((g) => !state.instructions.acknowledged.includes(g.id));
-        return `<details class="guide-section" data-guide-group="${e(surface)}" ${surface === current ? 'open' : ''}><summary>${e(surfaceGuideName(surface))} <span class="muted-note" data-group-status>${pending.length ? 'New' : 'Reviewed'}</span></summary>${topics.map((g) => `<section class="guide-topic"><h3>${ui(g.title)}</h3><ol>${g.steps.map((s) => `<li>${ui(s)}</li>`).join('')}</ol></section>`).join('')}${pending.length ? `<button type="button" class="btn" data-ack-instructions="${e(JSON.stringify(pending.map((g) => g.id)))}">I understand</button>` : ''}</details>`;
+        return [
+          `<details class="guide-section" data-guide-group="${e(surface)}" ${surface === current ? 'open' : ''}><summary>${e(surfaceGuideName(surface))} `,
+          [
+            `<span class="muted-note" data-group-status>${pending.length ? 'New' : 'Reviewed'}</span></summary>`,
+            `${topics.map((g) => `<section class="guide-topic"><h3>${ui(g.title)}</h3><ol>${g.steps.map((s) => `<li>${ui(s)}</li>`).join('')}</ol></section>`).join('')}`,
+            `${pending.length ? `<button type="button" class="btn" data-ack-instructions="${e(JSON.stringify(pending.map((g) => g.id)))}">I understand</button>` : ''}`,
+          ].join(''),
+          `</details>`,
+        ].join('');
       })
-      .join('')}`;
+      .join('')}`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
 }
 document.addEventListener('click', (ev) => {
@@ -605,17 +660,35 @@ function taskIdentity(t) {
   return `<div class="task-identity"><button type="button" class="task-code" data-copy-task-code="${e(t.task_code)}" title="Click to copy" aria-label="Copy ${e(t.task_code)}">${e(t.task_code)}</button></div>`;
 }
 function urgentControls(d) {
-  const t = d.task,
-    u = t.urgency;
-  return `<div class="task-urgent-controls">${u ? (u.can_cancel ? '<button type="button" class="task-urgent-button is-urgent" data-urgent-action="cancel" title="Cancel Urgent" aria-label="Cancel Urgent">Urgent</button>' : '<span class="task-urgent-button is-urgent" title="Urgent reminder">Urgent</span>') : !t.archived && !['done', 'archived'].includes(d.workflow.phase) ? '<button type="button" class="task-urgent-button" data-urgent-action="mark">Mark as Urgent</button>' : ''}</div>`;
+  const task = d.task;
+  const urgency = task.urgency;
+  let control = '';
+
+  if (urgency) {
+    control = urgency.can_cancel
+      ? '<button type="button" class="task-urgent-button is-urgent" data-urgent-action="cancel" title="Cancel Urgent" aria-label="Cancel Urgent">Urgent</button>'
+      : '<span class="task-urgent-button is-urgent" title="Urgent reminder">Urgent</span>';
+  } else if (!task.archived && !['done', 'archived'].includes(d.workflow.phase)) {
+    control =
+      '<button type="button" class="task-urgent-button" data-urgent-action="mark">Mark as Urgent</button>';
+  }
+
+  return `<div class="task-urgent-controls">${control}</div>`;
 }
 function urgentAttribution(d) {
   const u = d.task.urgency;
-  return `<div class="task-urgent-attribution">${u ? `<span>${ui('Marked as urgent by {name}', { name: who(u.marked_by) })}</span>${u.pending ? '<button type="button" class="account-link" data-urgent-action="acknowledge">Acknowledge</button>' : ''}` : ''}</div>`;
+  return [
+    `<div class="task-urgent-attribution">${u ? `<span>${ui('Marked as urgent by {name}', { name: who(u.marked_by) })}</span>${u.pending ? '<button type="button" class="account-link" data-urgent-action="acknowledge">Acknowledge</button>' : ''}` : ''}`,
+    `</div>`,
+  ].join('');
 }
 function taskHeading(d) {
   const t = d.task;
-  return `<header class="task-detail-heading"><div class="engineering-detail-title task-title-row"><h2 class="detail-heading">${e(t.title)}</h2><div class="task-title-actions"><span class="card-priority">${badge(t.priority)}</span>${urgentControls(d)}</div></div><div class="task-meta-row">${taskIdentity(t)}${urgentAttribution(d)}</div></header>`;
+  return [
+    `<header class="task-detail-heading"><div class="engineering-detail-title task-title-row"><h2 class="detail-heading">${e(t.title)}</h2>`,
+    `<div class="task-title-actions"><span class="card-priority">${badge(t.priority)}</span>${urgentControls(d)}</div></div><div class="task-meta-row">${taskIdentity(t)}${urgentAttribution(d)}`,
+    `</div></header>`,
+  ].join('');
 }
 function timelineRecords(d) {
   return [
@@ -636,15 +709,26 @@ function timelineRecords(d) {
 }
 function urgentReminderRows(s) {
   return (s.urgent_reminders || [])
-    .map(
-      (t) =>
-        `<article class="urgent-reminder"><div><span class="urgent-label">Urgent</span><button type="button" class="urgent-task-title" data-open="${e(t.id)}">${e(t.title)}</button><p class="muted-note">${ui('Marked as urgent by {name}', { name: who(t.urgency.marked_by) })}</p></div><div class="urgent-reminder-actions"><button type="button" class="account-link" data-open="${e(t.id)}">View Task</button><button type="button" class="btn tiny" data-urgent-task="${e(t.id)}" data-urgent-action="acknowledge">Acknowledge</button></div></article>`,
+    .map((t) =>
+      [
+        `<article class="urgent-reminder"><div><span class="urgent-label">Urgent</span><button type="button" class="urgent-task-title" data-open="${e(t.id)}">${e(t.title)}`,
+        `</button><p class="muted-note">${ui('Marked as urgent by {name}', { name: who(t.urgency.marked_by) })}</p></div><div class="urgent-reminder-actions">`,
+        `<button type="button" class="account-link" data-open="${e(t.id)}">View Task</button><button type="button" class="btn tiny" data-urgent-task="${e(t.id)}" data-urgent-action="acknowledge">Acknowledge`,
+        `</button></div></article>`,
+      ].join(''),
     )
     .join('');
 }
 
 const taskTitle = (t) =>
-  `<div class="title-cell" data-open="${e(t.id)}">${e(t.title)}<div class="muted" style="font-weight:400;margin-top:5px;font-size:10px">${e(t.type)}${activeTaskDue(t) ? ' · ' + e(t.current_due_label || 'Due') + ' ' + e(dateFmt(activeTaskDue(t))) : ''}${t.parent_task_id ? ' · ' + e(state.tasks.find((p) => p.id === t.parent_task_id)?.title || 'Parent task') : ''}</div></div>`;
+  [
+    [
+      `<div class="title-cell" data-open="${e(t.id)}">${e(t.title)}<div class="muted" style="font-weight:400;margin-top:5px;font-size:10px">`,
+      `${e(t.type)}${activeTaskDue(t) ? ' · ' + e(t.current_due_label || 'Due') + ' ' + e(dateFmt(activeTaskDue(t))) : ''}`,
+      `${t.parent_task_id ? ' · ' + e(state.tasks.find((p) => p.id === t.parent_task_id)?.title || 'Parent task') : ''}`,
+    ].join(''),
+    `</div></div>`,
+  ].join('');
 function setView(v, discard = false) {
   if (v === 'board' && state.view !== 'board') state.boardActivityOpen = false;
   if ((state.detail || state.privateDetail) && !discard && hasDirtyTask())
@@ -908,9 +992,14 @@ function renderDashboard() {
     },
     cs = s.counts;
   const activity = (s.today_activity || [])
-    .map(
-      (a) =>
-        `<article class="task-row workspace-update" ${a.task_id ? `data-row-activity="${e(a.activity_id)}" data-activity-task="${e(a.task_id)}"` : a.id ? `data-row-office="${e(a.id)}"` : ''} tabindex="0" role="button" aria-label="Open ${e(a.title)}"><div class="workspace-update-top"><span class="row-flex">${avatarHtml(a.person)}${e(who(a.person))}</span></div>${a.task_id ? `<div class="title-cell">${e(a.title)}</div>` : `<strong class="workspace-update-title">${e(a.title)}</strong>`}<p class="workspace-update-note">${e(a.notes || '')}</p><div class="workspace-tag-row">${a.private ? badge('Private work') : badge(a.category)}${!a.private && a.result ? badge(a.result) : ''}</div></article>`,
+    .map((a) =>
+      [
+        `<article class="task-row workspace-update" ${a.task_id ? `data-row-activity="${e(a.activity_id)}" data-activity-task="${e(a.task_id)}"` : a.id ? `data-row-office="${e(a.id)}"` : ''} tabindex="0" role="button" `,
+        `aria-label="Open ${e(a.title)}"><div class="workspace-update-top"><span class="row-flex">${avatarHtml(a.person)}${e(who(a.person))}`,
+        `</span></div>${a.task_id ? `<div class="title-cell">${e(a.title)}</div>` : `<strong class="workspace-update-title">${e(a.title)}</strong>`}`,
+        `<p class="workspace-update-note">${e(a.notes || '')}</p><div class="workspace-tag-row">${a.private ? badge('Private work') : badge(a.category)}${!a.private && a.result ? badge(a.result) : ''}`,
+        `</div></article>`,
+      ].join(''),
     )
     .join('');
   return (
@@ -920,7 +1009,17 @@ function renderDashboard() {
       'What needs your attention, and what moved forward.',
       `<input autocomplete="off" class="date-input" type="date" value="${state.day}" data-day>${canWrite() ? '<button class="btn primary" data-modal="office">+ Activity</button>' : ''}`,
     ) +
-    `<div class="workspace-summary" aria-label="Engineering summary"><div><span class="workspace-summary-number">${cs.total}</span><span>Active tasks</span></div><div><span class="workspace-summary-number">${cs.needQa}</span><span>Waiting for QA</span></div><div><span class="workspace-summary-number">${cs.needEngineering}</span><span>Needs engineering</span></div><div><span class="workspace-summary-number">${cs.production}</span><span>On Production</span></div></div><div class="workspace-home-grid"><div>${renderNextActions(s)}${dashboardTracking(s)}${renderPersonalReminders(s.personal_reminders || [])}</div><section class="workspace-activity"><div class="workspace-section-head"><h2 class="card-title">Today’s activity</h2><button class="account-link" data-view="daily">View all ↗</button></div><div class="workspace-activity-list">${activity || empty('No activity logged yet', 'New activity and office entries appear here automatically.')}</div></section></div><div class="workspace-home-footer">${canManage() ? '<button class="btn tiny" id="download-export">Export permitted data</button>' : ''}<span class="muted-note">${ui('Open an Engineering task to carry out its next step. Open Daily Work tasks to record personal progress.')}</span></div>`
+    [
+      `<div class="workspace-summary" aria-label="Engineering summary"><div><span class="workspace-summary-number">${cs.total}</span><span>Active tasks`,
+      `</span></div><div><span class="workspace-summary-number">${cs.needQa}</span><span>Waiting for QA</span></div><div><span class="workspace-summary-number">${cs.needEngineering}`,
+      `</span><span>Needs engineering</span></div><div><span class="workspace-summary-number">${cs.production}</span><span>On Production</span>`,
+      `</div></div><div class="workspace-home-grid"><div>${renderNextActions(s)}${dashboardTracking(s)}${renderPersonalReminders(s.personal_reminders || [])}`,
+      `</div><section class="workspace-activity"><div class="workspace-section-head"><h2 class="card-title">Today’s activity</h2><button class="account-link" data-view="daily">View all ↗`,
+      `</button></div><div class="workspace-activity-list">${activity || empty('No activity logged yet', 'New activity and office entries appear here automatically.')}`,
+      `</div></section></div><div class="workspace-home-footer">${canManage() ? '<button class="btn tiny" id="download-export">Export permitted data</button>' : ''}`,
+      `<span class="muted-note">${ui('Open an Engineering task to carry out its next step. Open Daily Work tasks to record personal progress.')}`,
+      `</span></div>`,
+    ].join('')
   );
 }
 
@@ -994,12 +1093,29 @@ function renderNextActions(s) {
               : feedback
                 ? 'Fix QA feedback, then merge to Stage'
                 : 'Continue development, then merge to Stage';
-      return `<div class="task-row next-action-card ${feedback ? 'next-action-attention' : ''}" data-stage-tone="${taskStageTone(t)}" data-row-task="${e(t.id)}" tabindex="0" role="button" aria-label="Open ${e(t.title)}"><div class="workspace-tag-row">${categoryTag(t.category)}${urgentBadge(t)}<span title="${e(feedback ? t.qa_status : reason)}">${badge(reason)}</span><span class="card-priority">${badge(t.priority)}</span></div><strong class="workspace-task-title">${e(t.title)}</strong><p class="workspace-next-action" title="${e(g.instruction)}">↳ ${ui(g.instruction)}</p><div class="workspace-task-footer"><span class="row-flex" title="${e(g.role)} · Next action owner">${avatarHtml(g.owner)}${e(g.owners?.length > 1 ? g.owners.map(who).join(' / ') : g.owner ? who(g.owner) : 'Choose owner')}</span><span>${activeTaskDue(t) ? e(t.current_due_label || 'Due') + ' ' + e(cardDate(activeTaskDue(t))) : ''}</span></div></div>`;
+      return [
+        `<div class="task-row next-action-card ${feedback ? 'next-action-attention' : ''}" data-stage-tone="${taskStageTone(t)}" data-row-task="${e(t.id)}" tabindex="0" role="button" aria-label="Open ${e(t.title)}">`,
+        `<div class="workspace-tag-row">${categoryTag(t.category)}${urgentBadge(t)}<span title="${e(feedback ? t.qa_status : reason)}">${badge(reason)}`,
+        `</span><span class="card-priority">${badge(t.priority)}</span></div><strong class="workspace-task-title">${e(t.title)}</strong><p class="workspace-next-action" title="${e(g.instruction)}">↳ ${ui(g.instruction)}`,
+        [
+          `</p><div class="workspace-task-footer"><span class="row-flex" title="${e(g.role)} · Next action owner">`,
+          `${avatarHtml(g.owner)}${e(g.owners?.length > 1 ? g.owners.map(who).join(' / ') : g.owner ? who(g.owner) : 'Choose owner')}`,
+        ].join(''),
+        `</span><span>${activeTaskDue(t) ? e(t.current_due_label || 'Due') + ' ' + e(cardDate(activeTaskDue(t))) : ''}</span></div></div>`,
+      ].join('');
     })
     .join('');
   if (!items.length && !urgentItems.length)
-    return `<section class="dashboard-queue next-actions-empty" aria-label="Needs My Action"><div class="queue-heading"><h2>Needs My Action</h2><span class="queue-count" aria-label="0 items">0</span><button class="account-link" data-view="board">View board ↗</button></div><div class="queue-empty"><strong>${ui('All caught up')}</strong><p>${ui('No tasks currently need an action.')}</p></div></section>`;
-  return `<section class="next-actions workspace-next-actions"><div class="workspace-section-head"><h2 class="card-title">Needs My Action <span class="muted-note">${items.length + urgentItems.length}</span></h2><button class="account-link" data-view="board">View board ↗</button></div><div class="workspace-next-list">${urgentRows}${rows}</div></section>`;
+    return [
+      `<section class="dashboard-queue next-actions-empty" aria-label="Needs My Action"><div class="queue-heading"><h2>Needs My Action</h2>`,
+      `<span class="queue-count" aria-label="0 items">0</span><button class="account-link" data-view="board">View board ↗</button></div><div class="queue-empty">`,
+      `<strong>${ui('All caught up')}</strong><p>${ui('No tasks currently need an action.')}</p></div></section>`,
+    ].join('');
+  return [
+    `<section class="next-actions workspace-next-actions"><div class="workspace-section-head"><h2 class="card-title">Needs My Action <span class="muted-note">${items.length + urgentItems.length}`,
+    `</span></h2><button class="account-link" data-view="board">View board ↗</button></div><div class="workspace-next-list">${urgentRows}${rows}`,
+    `</div></section>`,
+  ].join('');
 }
 const priorityRank = (p) => ({ Urgent: 0, High: 1, Medium: 2, Low: 3 })[p] ?? 4;
 
@@ -1189,14 +1305,22 @@ function filterBoardTasks(tasks, { ignorePhase = false } = {}) {
 }
 function renderBoardPhaseTabs(source) {
   const base = filterBoardTasks(source, { ignorePhase: true });
-  return `<div class="board-phase-tabs" role="group" aria-label="Workflow stage">${Object.entries(
-    boardPhaseLabels,
-  )
-    .map(
-      ([value, label]) =>
-        `<button type="button" data-board-phase="${value}" class="${(state.boardPhase || 'all') === value ? 'selected' : ''}" aria-pressed="${(state.boardPhase || 'all') === value}">${label}${(state.boardPhase || 'all') === value ? `<span class="board-tab-count">${base.filter((t) => matchesBoardPhase(t, value)).length}</span>` : ''}</button>`,
+  return [
+    `<div class="board-phase-tabs" role="group" aria-label="Workflow stage">${Object.entries(
+      boardPhaseLabels,
     )
-    .join('')}</div>`;
+      .map(([value, label]) =>
+        [
+          [
+            `<button type="button" data-board-phase="${value}" class="${(state.boardPhase || 'all') === value ? 'selected' : ''}" aria-pressed="`,
+            `${(state.boardPhase || 'all') === value}">${label}${(state.boardPhase || 'all') === value ? `<span class="board-tab-count">${base.filter((t) => matchesBoardPhase(t, value)).length}</span>` : ''}`,
+          ].join(''),
+          `</button>`,
+        ].join(''),
+      )
+      .join('')}`,
+    `</div>`,
+  ].join('');
 }
 function renderBoardFocus(source) {
   return `<div class="board-focus-bar">${renderBoardPhaseTabs(source)}<div class="board-person-tabs" role="group" aria-label="Task view"><span class="board-person-label" aria-hidden="true">Show</span>${Object.entries(
@@ -1218,22 +1342,68 @@ function renderBoardFilters() {
       ...state.archivedTasks.map((t) => t.category),
     ]),
   ].filter(Boolean);
-  return `<section class="board-toolbar" aria-label="Search and filter Engineering tasks"><div class="board-toolbar-main"><input autocomplete="off" type="search" class="search" id="task-search" aria-label="Search Engineering tasks" placeholder="${e(tr('Search tasks, projects or people'))}" data-ui-placeholder="Search tasks, projects or people" value="${e(state.filter)}"><div class="segmented board-scope-tabs" role="group" aria-label="Task scope"><button type="button" data-board-scope="active" class="${state.boardScope === 'active' ? 'selected' : ''}" aria-pressed="${state.boardScope === 'active'}">Active</button><button type="button" data-board-scope="completed" class="${state.boardScope === 'completed' ? 'selected' : ''}" aria-pressed="${state.boardScope === 'completed'}">Completed</button><button type="button" data-board-scope="archived" class="${state.boardScope === 'archived' ? 'selected' : ''}" aria-pressed="${state.boardScope === 'archived'}">Archived</button></div><button type="button" class="btn board-filter-toggle ${count ? 'has-filters' : ''}" data-board-filters-toggle aria-expanded="${state.boardFiltersOpen}" aria-controls="board-filter-panel"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/><circle cx="7" cy="5" r="2" fill="white"/><circle cx="13" cy="10" r="2" fill="white"/><circle cx="8" cy="15" r="2" fill="white"/></svg>Filters${count ? `<span class="board-filter-count">${count}</span>` : ''}</button></div><div id="board-filter-panel" class="board-filter-panel" ${state.boardFiltersOpen ? '' : 'hidden'}><div class="board-filter-fields"><div class="field"><label for="work-kind-filter">Work type</label><select id="work-kind-filter"><option value="all">Any work</option>${option(['Engineering', 'Quick Task', 'PM Task'], state.workKindFilter)}</select></div>${categoryPicker(state.categoryFilter, { id: 'category-filter', filter: true })}<div class="field board-filter-wide"><label for="dev-filter">Development stage</label><select id="dev-filter"><option value="all">Any stage</option>${option(state.statuses.development, state.devFilter)}</select></div><div class="field board-filter-wide"><label for="board-sort">Sort by</label><select id="board-sort">${option(['Priority first', 'Manual order', 'Recently updated'], state.boardSort === 'manual' ? 'Manual order' : state.boardSort === 'recent' ? 'Recently updated' : 'Priority first')}</select></div><div class="field board-filter-wide"><label for="qa-filter">QA status</label><select id="qa-filter"><option value="all">Any QA status</option>${[
-    ['ready', 'Ready to test'],
-    ['changes', 'Needs changes'],
-    ['passed', 'Passed'],
-    ['blocked', 'Blocked'],
-  ]
-    .map(
-      ([value, label]) =>
-        `<option value="${value}" ${state.qaFilter === value ? 'selected' : ''}>${label}</option>`,
-    )
-    .join(
-      '',
-    )}</select></div><div class="field"><label for="planning-filter">Planning status</label><select id="planning-filter"><option value="all">Any planning status</option>${option(['Backlog', 'Planned', 'Active', 'Completed'], state.planningFilter)}</select></div></div><div class="board-filter-footer"><span class="muted-note">${ui('The board updates as you choose.')}</span><button type="button" class="btn tiny" data-board-filters-toggle>Done</button></div></div>${entries.length ? `<div class="board-filter-chips" aria-label="Applied filters">${entries.map((f) => `<button type="button" class="board-filter-chip" data-clear-board-filter="${e(f.key)}" aria-label="Remove ${e(f.label)} filter: ${e(f.value)}"><span>${e(f.label)}: ${e(f.value)}</span><span aria-hidden="true">×</span></button>`).join('')}<button type="button" class="account-link" data-clear-board-filter="all">Clear all</button></div>` : ''}</section>`;
+  return [
+    [
+      `<section class="board-toolbar" aria-label="Search and filter Engineering tasks"><div class="board-toolbar-main">`,
+      `<input autocomplete="off" type="search" class="search" id="task-search" aria-label="Search Engineering tasks" `,
+    ].join(''),
+    `placeholder="${e(tr('Search tasks, projects or people'))}" data-ui-placeholder="Search tasks, projects or people" value="${e(state.filter)}">`,
+    [
+      `<div class="segmented board-scope-tabs" role="group" aria-label="Task scope"><button type="button" data-board-scope="active" class="`,
+      `${state.boardScope === 'active' ? 'selected' : ''}" aria-pressed="${state.boardScope === 'active'}">Active`,
+    ].join(''),
+    `</button><button type="button" data-board-scope="completed" class="${state.boardScope === 'completed' ? 'selected' : ''}" aria-pressed="${state.boardScope === 'completed'}">Completed`,
+    `</button><button type="button" data-board-scope="archived" class="${state.boardScope === 'archived' ? 'selected' : ''}" aria-pressed="${state.boardScope === 'archived'}">Archived`,
+    `</button></div><button type="button" class="btn board-filter-toggle ${count ? 'has-filters' : ''}" data-board-filters-toggle aria-expanded="${state.boardFiltersOpen}" aria-controls="board-filter-panel">`,
+    `<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/>`,
+    `<circle cx="7" cy="5" r="2" fill="white"/><circle cx="13" cy="10" r="2" fill="white"/><circle cx="8" cy="15" r="2" fill="white"/></svg>Filters${count ? `<span class="board-filter-count">${count}</span>` : ''}`,
+    `</button></div><div id="board-filter-panel" class="board-filter-panel" ${state.boardFiltersOpen ? '' : 'hidden'}><div class="board-filter-fields">`,
+    `<div class="field"><label for="work-kind-filter">Work type</label><select id="work-kind-filter"><option value="all">Any work</option>${option(['Engineering', 'Quick Task', 'PM Task'], state.workKindFilter)}`,
+    `</select></div>${categoryPicker(state.categoryFilter, { id: 'category-filter', filter: true })}<div class="field board-filter-wide">`,
+    `<label for="dev-filter">Development stage</label><select id="dev-filter"><option value="all">Any stage</option>${option(state.statuses.development, state.devFilter)}`,
+    [
+      `</select></div><div class="field board-filter-wide"><label for="board-sort">Sort by</label><select id="board-sort">`,
+      `${option(['Priority first', 'Manual order', 'Recently updated'], state.boardSort === 'manual' ? 'Manual order' : state.boardSort === 'recent' ? 'Recently updated' : 'Priority first')}`,
+    ].join(''),
+    `</select></div><div class="field board-filter-wide"><label for="qa-filter">QA status</label><select id="qa-filter"><option value="all">Any QA status`,
+    `</option>${[
+      ['ready', 'Ready to test'],
+      ['changes', 'Needs changes'],
+      ['passed', 'Passed'],
+      ['blocked', 'Blocked'],
+    ]
+      .map(
+        ([value, label]) =>
+          `<option value="${value}" ${state.qaFilter === value ? 'selected' : ''}>${label}</option>`,
+      )
+      .join('')}`,
+    `</select></div><div class="field"><label for="planning-filter">Planning status</label><select id="planning-filter"><option value="all">Any planning status`,
+    `</option>${option(['Backlog', 'Planned', 'Active', 'Completed'], state.planningFilter)}</select></div></div><div class="board-filter-footer">`,
+    `<span class="muted-note">${ui('The board updates as you choose.')}</span><button type="button" class="btn tiny" data-board-filters-toggle>Done`,
+    `</button></div></div>${
+      entries.length
+        ? [
+            `<div class="board-filter-chips" aria-label="Applied filters">${entries
+              .map((f) =>
+                [
+                  `<button type="button" class="board-filter-chip" data-clear-board-filter="${e(f.key)}" aria-label="Remove ${e(f.label)} filter: ${e(f.value)}">`,
+                  `<span>${e(f.label)}: ${e(f.value)}</span><span aria-hidden="true">×</span></button>`,
+                ].join(''),
+              )
+              .join('')}`,
+            `<button type="button" class="account-link" data-clear-board-filter="all">Clear all</button></div>`,
+          ].join('')
+        : ''
+    }`,
+    `</section>`,
+  ].join('');
 }
 function renderBoardLayout() {
-  return `<div class="workspace-board-view"><div class="segmented" role="group" aria-label="Task layout"><button type="button" data-board-layout="cards" class="${state.boardLayout === 'cards' ? 'selected' : ''}" aria-pressed="${state.boardLayout === 'cards'}">Cards</button><button type="button" data-board-layout="list" class="${state.boardLayout === 'list' ? 'selected' : ''}" aria-pressed="${state.boardLayout === 'list'}">List</button></div></div>`;
+  return [
+    `<div class="workspace-board-view"><div class="segmented" role="group" aria-label="Task layout"><button type="button" data-board-layout="cards" class="${state.boardLayout === 'cards' ? 'selected' : ''}" `,
+    `aria-pressed="${state.boardLayout === 'cards'}">Cards</button><button type="button" data-board-layout="list" class="${state.boardLayout === 'list' ? 'selected' : ''}" aria-pressed="${state.boardLayout === 'list'}">List`,
+    `</button></div></div>`,
+  ].join('');
 }
 function renderBoard() {
   const source = boardScopeTasks(),
@@ -1257,13 +1427,42 @@ function renderBoard() {
     renderBoardFilters() +
     renderBoardFocus(source) +
     renderBoardSections(matches, source) +
-    `<div class="footer-note">${matches.length} of ${source.length} ${state.boardScope === 'archived' ? 'archived' : state.boardScope === 'completed' ? 'completed' : 'active'} tasks · ${state.boardSort === 'manual' ? 'Manual order' : state.boardSort === 'recent' ? 'Recently updated' : 'Priority first'}</div><div class="section-gap"></div><details class="card board-daily-activity" id="board-daily-activity" ${state.boardActivityOpen ? 'open' : ''}><summary><h2 class="card-title">Daily Engineering Activity</h2><span class="muted-note">${e(state.day)}</span></summary><div class="board-daily-body"><div class="board-daily-date"><label for="board-activity-day">Work date</label><input autocomplete="off" id="board-activity-day" type="date" class="date-input" value="${state.day}" data-day></div><div id="board-daily-results">${ui('Loading activity…')}</div></div></details>`
+    [
+      [
+        `<div class="footer-note">${matches.length} of ${source.length} ${state.boardScope === 'archived' ? 'archived' : state.boardScope === 'completed' ? 'completed' : 'active'}`,
+        ` tasks · ${state.boardSort === 'manual' ? 'Manual order' : state.boardSort === 'recent' ? 'Recently updated' : 'Priority first'}`,
+      ].join(''),
+      `</div><div class="section-gap"></div><details class="card board-daily-activity" id="board-daily-activity" ${state.boardActivityOpen ? 'open' : ''}>`,
+      `<summary><h2 class="card-title">Daily Engineering Activity</h2><span class="muted-note">${e(state.day)}</span></summary><div class="board-daily-body">`,
+      `<div class="board-daily-date"><label for="board-activity-day">Work date</label><input autocomplete="off" id="board-activity-day" type="date" class="date-input" value="${state.day}" data-day>`,
+      `</div><div id="board-daily-results">${ui('Loading activity…')}</div></div></details>`,
+    ].join('')
   );
 }
 function renderBoardGroup(matches, source) {
   return state.boardLayout === 'cards'
     ? renderEngineeringCards(matches, source)
-    : `<section class="card board-card engineering-board"><div class="table-wrap"><table class="table"><thead><tr><th>TASK</th><th>CATEGORY</th><th>PRIORITY</th><th>DEVELOPMENT STAGE</th><th>QA RESULT</th><th>ASSIGNED TO</th><th>NEXT ACTION</th><th>LAST ENGINEER</th><th>LAST QA</th></tr></thead><tbody>${matches.map((t) => `<tr class="task-row ${state.detail === t.id ? 'selected' : ''}" data-stage-tone="${taskStageTone(t)}" data-row-task="${e(t.id)}" tabindex="0" role="button" aria-label="Open ${e(t.title)}"><td>${taskTitle(t)}</td><td>${categoryTag(t.category)}${urgentBadge(t)}</td><td>${badge(t.priority)}</td><td>${badge(t.work_kind === 'PM Task' ? t.pm_stage : t.work_kind === 'Quick Task' ? t.work_status : t.development_status)}</td><td>${t.work_kind === 'Quick Task' || (t.work_kind === 'PM Task' && t.pm_stage !== 'Implementation') ? '—' : badge(t.qa_status)}</td><td>${e(who(t.assignee))}</td><td>${boardNextAction(t)}</td><td>${e(dateFmt(t.last_engineer_action))}</td><td>${e(dateFmt(t.last_qa_action))}</td></tr>`).join('') || `<tr><td colspan="9">${boardEmptyState(source)}</td></tr>`}</tbody></table></div></section>`;
+    : [
+        `<section class="card board-card engineering-board"><div class="table-wrap"><table class="table"><thead><tr><th>TASK</th><th>CATEGORY`,
+        `</th><th>PRIORITY</th><th>DEVELOPMENT STAGE</th><th>QA RESULT</th><th>ASSIGNED TO</th><th>NEXT ACTION</th><th>LAST ENGINEER</th><th>LAST QA`,
+        `</th></tr></thead><tbody>${
+          matches
+            .map((t) =>
+              [
+                `<tr class="task-row ${state.detail === t.id ? 'selected' : ''}" data-stage-tone="${taskStageTone(t)}" data-row-task="${e(t.id)}" tabindex="0" role="button" aria-label="Open ${e(t.title)}">`,
+                [
+                  `<td>${taskTitle(t)}</td><td>${categoryTag(t.category)}${urgentBadge(t)}</td><td>${badge(t.priority)}`,
+                  `</td><td>${badge(t.work_kind === 'PM Task' ? t.pm_stage : t.work_kind === 'Quick Task' ? t.work_status : t.development_status)}`,
+                ].join(''),
+                `</td><td>${t.work_kind === 'Quick Task' || (t.work_kind === 'PM Task' && t.pm_stage !== 'Implementation') ? '—' : badge(t.qa_status)}`,
+                `</td><td>${e(who(t.assignee))}</td><td>${boardNextAction(t)}</td><td>${e(dateFmt(t.last_engineer_action))}</td><td>${e(dateFmt(t.last_qa_action))}`,
+                `</td></tr>`,
+              ].join(''),
+            )
+            .join('') || `<tr><td colspan="9">${boardEmptyState(source)}</td></tr>`
+        }`,
+        `</tbody></table></div></section>`,
+      ].join('');
 }
 function renderBoardSections(matches, source) {
   if (state.boardScope !== 'active') return renderBoardGroup(matches, source);
@@ -1272,7 +1471,14 @@ function renderBoardSections(matches, source) {
     backlog = matches.filter((t) => t.planning_status === 'Backlog');
   const future = (title, items) =>
     items.length
-      ? `<details class="board-future-work" ${state.filter || state.planningFilter === title || state.boardPeople === 'unassigned' ? 'open' : ''}><summary>${e(title)} <span class="queue-count">${items.length}</span></summary><p class="muted-note">${ui(title === 'Backlog' ? 'Keep ideas here without assigning an engineer. Activate when the request is ready for review.' : 'Planned work stays separate until it becomes Active.')}</p>${renderBoardGroup(items, items)}</details>`
+      ? [
+          `<details class="board-future-work" ${state.filter || state.planningFilter === title || state.boardPeople === 'unassigned' ? 'open' : ''}>`,
+          [
+            `<summary>${e(title)} <span class="queue-count">${items.length}</span></summary><p class="muted-note">`,
+            `${ui(title === 'Backlog' ? 'Keep ideas here without assigning an engineer. Activate when the request is ready for review.' : 'Planned work stays separate until it becomes Active.')}`,
+          ].join(''),
+          `</p>${renderBoardGroup(items, items)}</details>`,
+        ].join('')
       : '';
   return (
     (active.length
@@ -1322,15 +1528,31 @@ function boardPhaseBadge(t) {
   );
 }
 function renderEngineeringCards(items, source) {
-  return `<section class="engineering-board workspace-engineering-cards" aria-label="Engineering tasks">${
-    items
-      .map((t) => {
-        const owner = t.workflow?.owner || t.next_action_owner || t.assignee,
-          ownerLabel = t.workflow?.owner || t.next_action_owner ? 'Next action owner' : 'Assignee';
-        return `<div class="task-row workspace-engineering-card ${state.detail === t.id ? 'selected' : ''}" data-stage-tone="${taskStageTone(t)}" data-row-task="${e(t.id)}" tabindex="0" role="button" aria-label="Open ${e(t.title)}"><div class="workspace-tag-row">${categoryTag(t.category)}${urgentBadge(t)}${boardPhaseBadge(t)}${t.archived && t.development_status === 'Closed' ? badge('Completed') : ''}<span class="card-priority">${badge(t.priority)}</span></div><strong class="workspace-task-title">${e(t.title)}</strong><p class="workspace-task-meta">${t.work_kind && t.work_kind !== 'Engineering' ? e(t.work_kind) + ' · ' + e(t.work_kind === 'PM Task' ? t.pm_stage : t.work_status) + (t.pm_stage === 'Implementation' ? ' · ' + e(t.development_status) + ' · QA: ' + e(t.qa_status) : '') : `${e(t.project && t.project !== 'CRM' ? t.project : t.type)} · ${e(t.development_status)} · QA: ${e(t.qa_status)}`} · ${e(t.planning_status)}${t.parent_task_id ? ' · ' + e(state.tasks.find((p) => p.id === t.parent_task_id)?.title || 'Parent task') : ''}</p><p class="workspace-next-action"><span aria-hidden="true">↳</span> ${boardNextAction(t, false)}</p><div class="workspace-task-footer"><span class="row-flex" title="${ownerLabel}: ${e(who(owner))} · Assignee: ${e(who(t.assignee))}">${avatarHtml(owner)}${e(who(owner))}</span><span class="workspace-priority-date">${t.development_status === 'Closed' && t.completed_date ? 'Completed ' + e(cardDate(t.completed_date)) : activeTaskDue(t) ? e(t.current_due_label || 'Due') + ' ' + e(cardDate(activeTaskDue(t))) : ''}</span></div></div>`;
-      })
-      .join('') || boardEmptyState(source)
-  }</section>`;
+  return [
+    `<section class="engineering-board workspace-engineering-cards" aria-label="Engineering tasks">${
+      items
+        .map((t) => {
+          const owner = t.workflow?.owner || t.next_action_owner || t.assignee,
+            ownerLabel =
+              t.workflow?.owner || t.next_action_owner ? 'Next action owner' : 'Assignee';
+          return [
+            `<div class="task-row workspace-engineering-card ${state.detail === t.id ? 'selected' : ''}" data-stage-tone="${taskStageTone(t)}" data-row-task="${e(t.id)}" tabindex="0" role="button" aria-label="Open ${e(t.title)}">`,
+            `<div class="workspace-tag-row">${categoryTag(t.category)}${urgentBadge(t)}${boardPhaseBadge(t)}${t.archived && t.development_status === 'Closed' ? badge('Completed') : ''}`,
+            [
+              `<span class="card-priority">${badge(t.priority)}</span></div><strong class="workspace-task-title">`,
+              `${e(t.title)}</strong><p class="workspace-task-meta">${t.work_kind && t.work_kind !== 'Engineering' ? e(t.work_kind) + ' · ' + e(t.work_kind === 'PM Task' ? t.pm_stage : t.work_status) + (t.pm_stage === 'Implementation' ? ' · ' + e(t.development_status) + ' · QA: ' + e(t.qa_status) : '') : `${e(t.project && t.project !== 'CRM' ? t.project : t.type)} · ${e(t.development_status)} · QA: ${e(t.qa_status)}`}`,
+              ` · ${e(t.planning_status)}${t.parent_task_id ? ' · ' + e(state.tasks.find((p) => p.id === t.parent_task_id)?.title || 'Parent task') : ''}`,
+            ].join(''),
+            `</p><p class="workspace-next-action"><span aria-hidden="true">↳</span> ${boardNextAction(t, false)}</p><div class="workspace-task-footer">`,
+            `<span class="row-flex" title="${ownerLabel}: ${e(who(owner))} · Assignee: ${e(who(t.assignee))}">${avatarHtml(owner)}${e(who(owner))}`,
+            `</span><span class="workspace-priority-date">${t.development_status === 'Closed' && t.completed_date ? 'Completed ' + e(cardDate(t.completed_date)) : activeTaskDue(t) ? e(t.current_due_label || 'Due') + ' ' + e(cardDate(activeTaskDue(t))) : ''}`,
+            `</span></div></div>`,
+          ].join('');
+        })
+        .join('') || boardEmptyState(source)
+    }`,
+    `</section>`,
+  ].join('');
 }
 document.addEventListener('click', (ev) => {
   const button = ev.target.closest('[data-board-layout]');
@@ -1436,23 +1658,31 @@ function renderHistory() {
       'Append-only work log. Original actions and timestamps are never overwritten.',
       `<input autocomplete="off" type="search" class="search" id="history-search" placeholder="${e(tr('Filter by task, person or result'))}" data-ui-placeholder="Filter by task, person or result" value="${e(state.filter)}">`,
     ) +
-    `<section class="card board-card"><div class="table-wrap"><table class="table"><thead><tr><th>WORK DATE</th><th>RECORDED AT</th><th>PERSON</th><th>ACTION</th><th>TASK</th><th>RESULT / NOTES</th></tr></thead><tbody>${
-      rows
-        .filter(
-          (a) =>
-            !state.filter ||
-            [a.task_title, a.actor_email, a.result, a.notes]
-              .join(' ')
-              .toLowerCase()
-              .includes(state.filter.toLowerCase()),
-        )
-        .map(
-          (a) =>
-            `<tr><td>${e(dateFmt(a.activity_date))}</td><td>${e(timeFmt(a.created_at))}</td><td>${e(who(a.actor_email))}</td><td>${badge(a.action_type)}</td><td><div class="title-cell" data-open="${e(a.task_id)}">${e(a.task_title)}</div></td><td title="${e(a.notes)}" style="max-width:290px"><strong style="font-size:11px;color:#43515d">${e(a.result)}</strong><div class="muted" style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e(a.notes)}</div></td></tr>`,
-        )
-        .join('') ||
-      `<tr><td colspan="6">${empty('No history', 'Activity entries appear here automatically.')}</td></tr>`
-    }</tbody></table></div></section>`
+    [
+      `<section class="card board-card"><div class="table-wrap"><table class="table"><thead><tr><th>WORK DATE</th><th>RECORDED AT</th><th>PERSON`,
+      `</th><th>ACTION</th><th>TASK</th><th>RESULT / NOTES</th></tr></thead><tbody>${
+        rows
+          .filter(
+            (a) =>
+              !state.filter ||
+              [a.task_title, a.actor_email, a.result, a.notes]
+                .join(' ')
+                .toLowerCase()
+                .includes(state.filter.toLowerCase()),
+          )
+          .map((a) =>
+            [
+              `<tr><td>${e(dateFmt(a.activity_date))}</td><td>${e(timeFmt(a.created_at))}</td><td>${e(who(a.actor_email))}</td><td>${badge(a.action_type)}`,
+              `</td><td><div class="title-cell" data-open="${e(a.task_id)}">${e(a.task_title)}</div></td><td title="${e(a.notes)}" style="max-width:290px">`,
+              `<strong style="font-size:11px;color:#43515d">${e(a.result)}</strong><div class="muted" style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e(a.notes)}`,
+              `</div></td></tr>`,
+            ].join(''),
+          )
+          .join('') ||
+        `<tr><td colspan="6">${empty('No history', 'Activity entries appear here automatically.')}</td></tr>`
+      }`,
+      `</tbody></table></div></section>`,
+    ].join('')
   );
 }
 function renderTeam() {
@@ -1464,16 +1694,20 @@ function renderTeam() {
       'Admin manages team accounts. Private daily entries remain visible only to the owner and boss.',
       `<button class="btn primary" data-modal="user">+ Add member</button>`,
     ) +
-    `<div class="report-intro">${ui('Create an email account, assign its system role and work groups, then set its password.')}</div><section class="card"><div class="table-wrap"><table class="table"><thead><tr><th>NAME</th><th>EMAIL</th><th>ROLE</th><th>ACCOUNT</th></tr></thead><tbody>${state.users
-      .map(
-        (u) =>
-          `<tr><td>${avatarHtml(u.email)}<b class="focus-num">${e(u.display_name || '—')}</b></td><td>${e(u.email)}</td><td>${badge(u.role)} ${e(
-            JSON.parse(u.groups_json || '[]')
-              .map((g) => (g === 'Management' ? 'Manager' : g))
-              .join(' · '),
-          )} </td><td>${u.enabled ? badge('Active') : badge('Disabled')} <button class="btn" data-edit-user="${e(u.email)}">Edit</button></td></tr>`,
-      )
-      .join('')}</tbody></table></div></section>`
+    [
+      `<div class="report-intro">${ui('Create an email account, assign its system role and work groups, then set its password.')}</div><section class="card">`,
+      `<div class="table-wrap"><table class="table"><thead><tr><th>NAME</th><th>EMAIL</th><th>ROLE</th><th>ACCOUNT</th></tr></thead><tbody>${state.users
+        .map(
+          (u) =>
+            `<tr><td>${avatarHtml(u.email)}<b class="focus-num">${e(u.display_name || '—')}</b></td><td>${e(u.email)}</td><td>${badge(u.role)} ${e(
+              JSON.parse(u.groups_json || '[]')
+                .map((g) => (g === 'Management' ? 'Manager' : g))
+                .join(' · '),
+            )} </td><td>${u.enabled ? badge('Active') : badge('Disabled')} <button class="btn" data-edit-user="${e(u.email)}">Edit</button></td></tr>`,
+        )
+        .join('')}`,
+      `</tbody></table></div></section>`,
+    ].join('')
   );
 }
 let detailRequest = 0;
@@ -1621,7 +1855,13 @@ const activityTypeLabels = {
   Other: 'Other work',
 };
 function activityTypeSelect(actions, selected) {
-  return `<div class="field"><label for="activity-action">Activity type</label><select id="activity-action" data-key="activity-action">${[...new Set(actions)].map((value) => `<option value="${e(value)}" ${value === selected ? 'selected' : ''}>${e(activityTypeLabels[value] || value)}</option>`).join('')}</select></div>`;
+  return [
+    [
+      `<div class="field"><label for="activity-action">Activity type</label><select id="activity-action" data-key="activity-action">`,
+      `${[...new Set(actions)].map((value) => `<option value="${e(value)}" ${value === selected ? 'selected' : ''}>${e(activityTypeLabels[value] || value)}</option>`).join('')}`,
+    ].join(''),
+    `</select></div>`,
+  ].join('');
 }
 const inputSelect = (label, key, value, opts, enabled = true) =>
   `<div class="field"><label>${e(label)}</label><select class="task-field" data-key="${e(key)}" ${enabled ? '' : 'disabled'}>${option(opts, value)}</select></div>`;
@@ -1641,10 +1881,21 @@ function workflowMemberOptions(group, value = '') {
     (u) => memberCanWork(u) && JSON.parse(u.groups_json || '[]').includes(group),
   );
   const legacy = value && !members.some((u) => u.email === value);
-  return `<option value="">Choose ${e(group)} owner</option>${members.map((u) => `<option value="${e(u.email)}" ${u.email === value ? 'selected' : ''}>${e(u.display_name || who(u.email))}</option>`).join('')}${legacy ? `<option value="${e(value)}" selected disabled>${e(who(value))} (${e(group)} unavailable)</option>` : ''}`;
+  return [
+    `<option value="">Choose ${e(group)} owner</option>${members.map((u) => `<option value="${e(u.email)}" ${u.email === value ? 'selected' : ''}>${e(u.display_name || who(u.email))}</option>`).join('')}`,
+    `${legacy ? `<option value="${e(value)}" selected disabled>${e(who(value))} (${e(group)} unavailable)</option>` : ''}`,
+  ].join('');
 }
 function linkedEvidencePicker(inputId, key, id, label) {
-  return `<div class="field"><label>${e(label)}</label><div class="task-drop-zone paste-target evidence-drop-zone" tabindex="0" role="group" aria-label="Attachment paste area" data-evidence-input="${e(inputId)}" data-upload-${key}="${e(id)}"><span class="paste-idle">${ui('Click here, then press ⌘V / Ctrl+V to paste an image')}</span><span class="paste-ready" aria-live="polite">${ui('Ready — press ⌘V / Ctrl+V to paste an image here')}</span><span class="paste-drop-hint">${ui('Or drop images or files here')}</span><button type="button" class="btn paste-choose" data-choose-files>${ui('Choose files')}</button></div><input autocomplete="off" id="${e(inputId)}" type="file" data-${key}-files="${e(id)}" multiple hidden></div>`;
+  return [
+    `<div class="field"><label>${e(label)}</label><div class="task-drop-zone paste-target evidence-drop-zone" tabindex="0" role="group" aria-label="Attachment paste area" data-evidence-input="${e(inputId)}" `,
+    [
+      `data-upload-${key}="${e(id)}"><span class="paste-idle">${ui('Click here, then press ⌘V / Ctrl+V to paste an image')}`,
+      `</span><span class="paste-ready" aria-live="polite">${ui('Ready — press ⌘V / Ctrl+V to paste an image here')}`,
+    ].join(''),
+    `</span><span class="paste-drop-hint">${ui('Or drop images or files here')}</span><button type="button" class="btn paste-choose" data-choose-files>${ui('Choose files')}`,
+    `</button></div><input autocomplete="off" id="${e(inputId)}" type="file" data-${key}-files="${e(id)}" multiple hidden></div>`,
+  ].join('');
 }
 function evidencePicker(inputId, kind, label) {
   const files =
@@ -1660,7 +1911,16 @@ function evidencePicker(inputId, kind, label) {
                 ? pendingCommentFiles
                 : pendingActivityFiles,
     listId = inputId.replace('-files', '-file-list');
-  return `<div class="field evidence-picker"><label for="${e(inputId)}">${e(label)}</label><div class="task-drop-zone paste-target evidence-drop-zone" tabindex="0" role="group" aria-label="Attachment paste area" data-evidence-input="${e(inputId)}" data-evidence-kind="${e(kind)}"><span class="paste-idle">${ui('Click here, then press ⌘V / Ctrl+V to paste an image')}</span><span class="paste-ready" aria-live="polite">${ui('Ready — press ⌘V / Ctrl+V to paste an image here')}</span><span class="paste-drop-hint">${ui('Or drop images or files here')}</span><button type="button" class="btn paste-choose" data-choose-files>${ui('Choose files')}</button><div class="muted-note evidence-file-list" id="${e(listId)}" aria-live="polite">${files.map((f) => e(f.name)).join(' · ')}</div></div><input autocomplete="off" id="${e(inputId)}" type="file" multiple hidden></div>`;
+  return [
+    `<div class="field evidence-picker"><label for="${e(inputId)}">${e(label)}</label><div class="task-drop-zone paste-target evidence-drop-zone" tabindex="0" role="group" aria-label="Attachment paste area" `,
+    `data-evidence-input="${e(inputId)}" data-evidence-kind="${e(kind)}"><span class="paste-idle">${ui('Click here, then press ⌘V / Ctrl+V to paste an image')}`,
+    `</span><span class="paste-ready" aria-live="polite">${ui('Ready — press ⌘V / Ctrl+V to paste an image here')}</span><span class="paste-drop-hint">${ui('Or drop images or files here')}`,
+    [
+      `</span><button type="button" class="btn paste-choose" data-choose-files>${ui('Choose files')}</button>`,
+      `<div class="muted-note evidence-file-list" id="${e(listId)}" aria-live="polite">${files.map((f) => e(f.name)).join(' · ')}`,
+    ].join(''),
+    `</div></div><input autocomplete="off" id="${e(inputId)}" type="file" multiple hidden></div>`,
+  ].join('');
 }
 function workflowCard(d, writable) {
   const t = d.task,
@@ -1675,11 +1935,20 @@ function workflowCard(d, writable) {
     allowed = writable && (g.role === 'QA' ? canQA() : canDev());
   let fields = '';
   const select = (label, key, value, opts, labels = null) =>
-    `<div class="field"><label>${ui(label)}</label><select data-workflow-field="${key}">${labels ? opts.map((v) => `<option value="${e(v)}" ${v === value ? 'selected' : ''}>${e(labels[v] || v)}</option>`).join('') : option(opts, value)}</select></div>`;
+    [
+      `<div class="field"><label>${ui(label)}</label><select data-workflow-field="${key}">${labels ? opts.map((v) => `<option value="${e(v)}" ${v === value ? 'selected' : ''}>${e(labels[v] || v)}</option>`).join('') : option(opts, value)}`,
+      `</select></div>`,
+    ].join('');
   const owner = (label, key, group, value) =>
     `<div class="field"><label>${ui(label)}</label><select data-workflow-field="${key}">${workflowMemberOptions(group, value)}</select></div>`;
   const notes = (label, required = false) =>
-    `<div class="field"><label>${ui(label)}${required ? ' *' : ''}</label><textarea autocomplete="off" data-workflow-field="notes" placeholder="${e(tr('e.g. Fixed the issue and checked the result.'))}" data-ui-placeholder="e.g. Fixed the issue and checked the result."></textarea></div>`;
+    [
+      [
+        `<div class="field"><label>${ui(label)}${required ? ' *' : ''}</label><textarea autocomplete="off" data-workflow-field="notes" placeholder="`,
+        `${e(tr('e.g. Fixed the issue and checked the result.'))}" data-ui-placeholder="e.g. Fixed the issue and checked the result.">`,
+      ].join(''),
+      `</textarea></div>`,
+    ].join('');
   if (g.phase === 'review')
     fields =
       select(
@@ -1701,13 +1970,24 @@ function workflowCard(d, writable) {
         'Engineering',
         t.assignee || (canDev() ? state.user.email : ''),
       ) +
-      `<div class="field" data-review-delivery><label>Estimated delivery date *</label><input autocomplete="off" type="date" data-workflow-field="estimated_delivery_date" min="${todayDate()}" value="${e(t.estimated_delivery_date || todayDate())}" ${!t.estimated_delivery_date ? 'data-suggested="true" class="suggested-value"' : ''}><span class="muted-note">${ui('Required when the engineer confirms it can be completed.')}</span></div>` +
+      [
+        [
+          `<div class="field" data-review-delivery><label>Estimated delivery date *</label><input autocomplete="off" type="date" data-workflow-field="estimated_delivery_date" `,
+          `min="${todayDate()}" value="${e(t.estimated_delivery_date || todayDate())}" `,
+        ].join(''),
+        `${!t.estimated_delivery_date ? 'data-suggested="true" class="suggested-value"' : ''}><span class="muted-note">${ui('Required when the engineer confirms it can be completed.')}`,
+        `</span></div>`,
+      ].join('') +
       notes('Review / clarification notes') +
       `<button class="btn primary" data-workflow-action="review" data-review-confirm>${fromPM ? 'Confirm review & start Engineering' : 'Confirm engineer review'}</button>`;
   if (g.phase === 'development')
     fields =
       (t.delivery_reset_required
-        ? `<div class="field delivery-reset"><label>New Engineering delivery date *</label><input autocomplete="off" type="date" data-workflow-field="estimated_delivery_date" min="${todayDate()}" value="${todayDate()}" data-suggested="true" class="suggested-value" required><span class="muted-note">${ui('Set the new estimate, then confirm progress or hand the fixed build to QA.')}</span></div>`
+        ? [
+            `<div class="field delivery-reset"><label>New Engineering delivery date *</label><input autocomplete="off" type="date" data-workflow-field="estimated_delivery_date" min="${todayDate()}" value="${todayDate()}" `,
+            `data-suggested="true" class="suggested-value" required><span class="muted-note">${ui('Set the new estimate, then confirm progress or hand the fixed build to QA.')}`,
+            `</span></div>`,
+          ].join('')
         : '') +
       select(
         'Current engineering stage',
@@ -1729,7 +2009,13 @@ function workflowCard(d, writable) {
         },
       ) +
       notes('Progress / handoff notes') +
-      `<div class="stage-handoff" data-stage-handoff hidden>${owner('QA owner *', 'qa_owner', 'QA', t.qa_owner)}<p class="muted-note">${ui('Confirm the merge to Stage only when this build is available for testing. The same confirmation assigns QA and starts testing.')}</p></div><button class="btn primary" data-workflow-action="progress" data-engineering-confirm>Confirm engineering stage</button>`;
+      [
+        [
+          `<div class="stage-handoff" data-stage-handoff hidden>${owner('QA owner *', 'qa_owner', 'QA', t.qa_owner)}`,
+          `<p class="muted-note">${ui('Confirm the merge to Stage only when this build is available for testing. The same confirmation assigns QA and starts testing.')}`,
+        ].join(''),
+        `</p></div><button class="btn primary" data-workflow-action="progress" data-engineering-confirm>Confirm engineering stage</button>`,
+      ].join('');
   if (g.phase === 'pr_review')
     fields =
       owner('PR reviewer *', 'pr_reviewer', 'Engineering', t.pr_reviewer) +
@@ -1743,7 +2029,10 @@ function workflowCard(d, writable) {
         : '') +
       notes('Stage deployment / verification notes') +
       owner('QA owner *', 'qa_owner', 'QA', t.qa_owner) +
-      `<p class="muted-note">${ui('The engineer owner or reviewer can confirm the deployment. QA starts only after this build is available on Stage.')}</p><button class="btn primary" data-workflow-action="stage">Confirm deployed to Stage → QA</button>`;
+      [
+        `<p class="muted-note">${ui('The engineer owner or reviewer can confirm the deployment. QA starts only after this build is available on Stage.')}`,
+        `</p><button class="btn primary" data-workflow-action="stage">Confirm deployed to Stage → QA</button>`,
+      ].join('');
   if (g.phase === 'qa')
     fields =
       select(
@@ -1759,12 +2048,43 @@ function workflowCard(d, writable) {
     fields =
       `<div class="field"><label>Completed date *</label><input autocomplete="off" type="date" data-workflow-field="completed_date" value="${todayDate()}"></div>` +
       notes('Completion check / handoff notes', true) +
-      `<p class="muted-note">${ui('Assigned to {assignee}. Your update will be recorded as {actor}.', { assignee: who(t.assignee), actor: who(state.user.email) })}</p><button class="btn primary" data-workflow-action="close">Confirm task complete</button>`;
+      [
+        `<p class="muted-note">${ui('Assigned to {assignee}. Your update will be recorded as {actor}.', { assignee: who(t.assignee), actor: who(state.user.email) })}`,
+        `</p><button class="btn primary" data-workflow-action="close">Confirm task complete</button>`,
+      ].join('');
   if (g.phase === 'production')
     fields =
       notes('Production verification / release notes') +
-      `<p class="muted-note">${ui('QA passed this Stage build. Confirm after the production deployment and verification are complete.')}</p><button class="btn primary" data-workflow-action="production">Confirm deployed & complete</button>`;
-  return `<section data-stage-tone="${taskStageTone(t, g)}" data-stage="${e(g.phase === 'done' && g.actions.includes('close') ? 'completion' : g.phase)}" class="next-step-card ${g.phase === 'development' && t.qa_status !== 'Not Tested' ? 'attention' : ''}"><details class="next-step-toggle"><summary><div class="next-step-head"><span class="eyebrow">NEXT STEP · ${e(g.phase.replaceAll('_', ' ').toUpperCase())}</span><span>${g.actions.length ? e(g.role) + ' · ' + e(g.owners?.length ? g.owners.map(who).join(' / ') : g.owner ? who(g.owner) : 'Choose owner') : g.phase === 'planning' ? e(t.planning_status) : g.phase === 'archived' ? 'Archived' : 'Complete'}</span></div></summary><div class="next-step-body"><p class="step-instruction">${ui(g.instruction)}</p>${activeTaskDue(t) ? `<p class="stage-due">${e(t.current_due_label || 'Engineering due')} <strong>${e(dateFmt(activeTaskDue(t)))}</strong>${t.follow_up?.overdue ? ' ' + badge('Overdue') : ''}</p>` : t.delivery_reset_required ? `<p class="stage-due">${ui('QA returned this task. Choose a new Engineering delivery date below.')}</p>` : ''}${t.review_notes && g.phase === 'review' ? `<p class="work-notes">${e(t.review_notes)}</p>` : ''}${allowed && fields ? `<div class="workflow-form" data-phase="${e(g.phase)}">${fields}${evidencePicker('workflow-files', 'activity', 'Images for this step')}</div>` : g.actions.length ? `<p class="muted-note">${ui('Waiting for {role} to confirm this step.', { role: g.role })}</p>` : ''}${requestPM ? `<div class="pm-return-action"><button class="btn" data-pm-action="request-details">Return to PM</button><span class="muted-note">${ui('Need clarification or a revised design? Return this task to PM with the details needed.')}</span></div>` : ''}</div></details></section>`;
+      [
+        `<p class="muted-note">${ui('QA passed this Stage build. Confirm after the production deployment and verification are complete.')}</p>`,
+        `<button class="btn primary" data-workflow-action="production">Confirm deployed & complete</button>`,
+      ].join('');
+  return [
+    [
+      `<section data-stage-tone="${taskStageTone(t, g)}" data-stage="${e(g.phase === 'done' && g.actions.includes('close') ? 'completion' : g.phase)}" class="next-step-card `,
+      `${g.phase === 'development' && t.qa_status !== 'Not Tested' ? 'attention' : ''}">`,
+    ].join(''),
+    `<details class="next-step-toggle"><summary><div class="next-step-head"><span class="eyebrow">NEXT STEP · ${e(g.phase.replaceAll('_', ' ').toUpperCase())}`,
+    `</span><span>${g.actions.length ? e(g.role) + ' · ' + e(g.owners?.length ? g.owners.map(who).join(' / ') : g.owner ? who(g.owner) : 'Choose owner') : g.phase === 'planning' ? e(t.planning_status) : g.phase === 'archived' ? 'Archived' : 'Complete'}`,
+    [
+      `</span></div></summary><div class="next-step-body"><p class="step-instruction">${ui(g.instruction)}`,
+      `</p>${activeTaskDue(t) ? `<p class="stage-due">${e(t.current_due_label || 'Engineering due')} <strong>${e(dateFmt(activeTaskDue(t)))}</strong>${t.follow_up?.overdue ? ' ' + badge('Overdue') : ''}</p>` : t.delivery_reset_required ? `<p class="stage-due">${ui('QA returned this task. Choose a new Engineering delivery date below.')}</p>` : ''}`,
+      `${t.review_notes && g.phase === 'review' ? `<p class="work-notes">${e(t.review_notes)}</p>` : ''}`,
+      `${allowed && fields ? `<div class="workflow-form" data-phase="${e(g.phase)}">${fields}${evidencePicker('workflow-files', 'activity', 'Images for this step')}</div>` : g.actions.length ? `<p class="muted-note">${ui('Waiting for {role} to confirm this step.', { role: g.role })}</p>` : ''}`,
+      `${
+        requestPM
+          ? [
+              [
+                `<div class="pm-return-action"><button class="btn" data-pm-action="request-details">Return to PM</button>`,
+                `<span class="muted-note">${ui('Need clarification or a revised design? Return this task to PM with the details needed.')}`,
+              ].join(''),
+              `</span></div>`,
+            ].join('')
+          : ''
+      }`,
+    ].join(''),
+    `</div></details></section>`,
+  ].join('');
 }
 function syncWorkflowStage() {
   const stage = document.querySelector('[data-workflow-field="development_status"]'),
@@ -1874,7 +2194,10 @@ document.addEventListener('click', (ev) => {
 });
 function memberOptions(value = '') {
   const members = state.users.filter((u) => memberCanWork(u));
-  return `<option value="">Unassigned</option>${members.map((u) => `<option value="${e(u.email)}" ${u.email === value ? 'selected' : ''}>${e(u.display_name || who(u.email))}</option>`).join('')}${value && !members.some((u) => u.email === value) ? `<option value="${e(value)}" selected>${e(who(value))} (inactive)</option>` : ''}`;
+  return [
+    `<option value="">Unassigned</option>${members.map((u) => `<option value="${e(u.email)}" ${u.email === value ? 'selected' : ''}>${e(u.display_name || who(u.email))}</option>`).join('')}`,
+    `${value && !members.some((u) => u.email === value) ? `<option value="${e(value)}" selected>${e(who(value))} (inactive)</option>` : ''}`,
+  ].join('');
 }
 function memberSelect(label, key, value, enabled = true) {
   return `<div class="field"><label>${e(label)}</label><select class="task-field" data-key="${e(key)}" ${enabled ? '' : 'disabled'}>${memberOptions(value)}</select></div>`;
@@ -1896,17 +2219,22 @@ function pendingCommentsCard(d, writable) {
     (c) => c.pending_action && (!shownQa || c.reply_to_activity !== shownQa.id),
   );
   if (!comments.length) return '';
-  return `<section class="pending-comments" aria-label="Comments awaiting next action"><div class="eyebrow">NEW COMMENTS · AWAITING NEXT ACTION</div>${comments
-    .map(
-      (c) =>
-        `<article class="pending-comment" data-highlight-comment="${e(c.id)}"><div class="pending-comment-head"><strong>${e(who(c.actor_email))}</strong><span>${e(timeFmt(c.created_at))}</span></div>${commentReplyLink(c, d)}<p class="work-notes">${e(c.body)}</p>${attachmentTiles(
-          d.attachments.filter((a) => a.comment_id === c.id),
-          writable,
-        )}${writable ? `<button type="button" class="account-link comment-reply-button" data-reply-comment="${e(c.id)}">Reply</button>` : ''}</article>`,
-    )
-    .join(
-      '',
-    )}<p class="muted-note">${ui('Shown until the next action on this task. Comments remain in Discussion.')}</p></section>`;
+  return [
+    `<section class="pending-comments" aria-label="Comments awaiting next action"><div class="eyebrow">NEW COMMENTS · AWAITING NEXT ACTION`,
+    `</div>${comments
+      .map((c) =>
+        [
+          `<article class="pending-comment" data-highlight-comment="${e(c.id)}"><div class="pending-comment-head"><strong>${e(who(c.actor_email))}`,
+          `</strong><span>${e(timeFmt(c.created_at))}</span></div>${commentReplyLink(c, d)}<p class="work-notes">${e(c.body)}</p>${attachmentTiles(
+            d.attachments.filter((a) => a.comment_id === c.id),
+            writable,
+          )}${writable ? `<button type="button" class="account-link comment-reply-button" data-reply-comment="${e(c.id)}">Reply</button>` : ''}`,
+          `</article>`,
+        ].join(''),
+      )
+      .join('')}`,
+    `<p class="muted-note">${ui('Shown until the next action on this task. Comments remain in Discussion.')}</p></section>`,
+  ].join('');
 }
 function previousStageSnapshot(d) {
   const phase = d.workflow.phase,
@@ -1957,20 +2285,32 @@ function previousStageCard(d) {
     writable = canWrite() && !t.archived;
   const replies = qa ? (d.comments || []).filter((c) => c.reply_to_activity === result.id) : [];
   const thread = qa
-    ? `<div class="qa-feedback-thread">${writable ? `<button class="btn tiny" data-reply-qa="${e(result.id)}">Reply</button>` : ''}${replies
-        .map(
-          (c) =>
-            `<article class="qa-feedback-reply" data-highlight-comment="${e(c.id)}"><strong>${e(who(c.actor_email))}</strong>${c.reply_to ? commentReplyLink(c, d) : ''}<p class="work-notes">${e(c.body)}</p>${attachmentTiles(
-              d.attachments.filter((f) => f.comment_id === c.id),
-              false,
-            )}${writable ? `<button class="account-link" data-reply-comment="${e(c.id)}">Reply</button>` : ''}</article>`,
-        )
-        .join('')}</div>`
+    ? [
+        [
+          `<div class="qa-feedback-thread">${writable ? `<button class="btn tiny" data-reply-qa="${e(result.id)}">Reply</button>` : ''}`,
+          `${replies
+            .map(
+              (c) =>
+                `<article class="qa-feedback-reply" data-highlight-comment="${e(c.id)}"><strong>${e(who(c.actor_email))}</strong>${c.reply_to ? commentReplyLink(c, d) : ''}<p class="work-notes">${e(c.body)}</p>${attachmentTiles(
+                  d.attachments.filter((f) => f.comment_id === c.id),
+                  false,
+                )}${writable ? `<button class="account-link" data-reply-comment="${e(c.id)}">Reply</button>` : ''}</article>`,
+            )
+            .join('')}`,
+        ].join(''),
+        `</div>`,
+      ].join('')
     : '';
-  return `<section ${qa ? `data-qa-feedback="${e(result.id)}"` : ''} class="previous-stage" aria-label="Previous stage result" data-previous-activity="${e(result.id)}"><div class="previous-stage-head"><div><span class="eyebrow">PREVIOUS STAGE · ${e(label.toUpperCase())}</span><p>${badge(result.result)}</p></div><span class="muted-note">${e(who(result.actor_email))} · ${e(dateFmt(result.activity_date))}</span></div><p class="work-notes">${e(result.notes)}</p>${attachmentTiles(
-    d.attachments.filter((a) => a.activity_id === result.id),
-    false,
-  )}<p class="muted-note">${ui('Open Activity timeline below to read earlier stages.')}</p>${thread}${canUndoPreviousStage(d) ? stageCorrectionControl(d, writable, true) : ''}</section>`;
+  return [
+    `<section ${qa ? `data-qa-feedback="${e(result.id)}"` : ''} class="previous-stage" aria-label="Previous stage result" data-previous-activity="${e(result.id)}">`,
+    `<div class="previous-stage-head"><div><span class="eyebrow">PREVIOUS STAGE · ${e(label.toUpperCase())}</span><p>${badge(result.result)}`,
+    `</p></div><span class="muted-note">${e(who(result.actor_email))} · ${e(dateFmt(result.activity_date))}</span></div><p class="work-notes">${e(result.notes)}`,
+    `</p>${attachmentTiles(
+      d.attachments.filter((a) => a.activity_id === result.id),
+      false,
+    )}<p class="muted-note">${ui('Open Activity timeline below to read earlier stages.')}`,
+    `</p>${thread}${canUndoPreviousStage(d) ? stageCorrectionControl(d, writable, true) : ''}</section>`,
+  ].join('');
 }
 
 /**
@@ -2046,12 +2386,50 @@ function renderEngineeringTaskParent(task) {
 
 function renderEngineeringTaskSettings(d, writable, needsDev, needsQa) {
   const t = d.task;
-  return `<details class="task-secondary task-settings"><summary>Task settings <span class="summary-hint">Owners, collaborators & planning</span></summary><p class="muted-note">${ui('Use Next Step to record and advance work. These settings manage ownership, planning and follow-up reminders.')}</p>${trackingOverview(d, writable)}${completionDateRow(t, writable && canDev(), true)}<div class="status-focus"><div class="status-cell ${needsDev ? 'needs-change' : ''}"><span class="muted-note">Development stage</span><p>${badge(t.development_status)}</p></div><div class="status-cell ${needsQa ? 'needs-change' : ''}"><span class="muted-note">QA result</span><p>${badge(t.qa_status)}</p></div></div><div class="field current-environment">${inputSelect('Current environment', 'current_environment', t.current_environment, ['—', 'Local', 'PR', 'Stage', 'Production'], writable && (canQA() || canDev()))}<span class="muted-note">${ui('Follows development stage; you can override it.')}</span></div><div class="form-row task-responsibility"><div class="field"><label>Engineering owner</label><select class="task-field" data-key="assignee" ${writable && canQA() ? '' : 'disabled'}>${workflowMemberOptions('Engineering', t.assignee)}</select></div>${inputSelect('Priority', 'priority', t.priority, state.statuses.priorities, writable && canQA())}</div></details>`;
+  return [
+    `<details class="task-secondary task-settings"><summary>Task settings <span class="summary-hint">Owners, collaborators & planning</span>`,
+    `</summary><p class="muted-note">${ui('Use Next Step to record and advance work. These settings manage ownership, planning and follow-up reminders.')}`,
+    `</p>${trackingOverview(d, writable)}${completionDateRow(t, writable && canDev(), true)}<div class="status-focus"><div class="status-cell ${needsDev ? 'needs-change' : ''}">`,
+    `<span class="muted-note">Development stage</span><p>${badge(t.development_status)}</p></div><div class="status-cell ${needsQa ? 'needs-change' : ''}">`,
+    [
+      `<span class="muted-note">QA result</span><p>${badge(t.qa_status)}</p></div></div><div class="field current-environment">`,
+      `${inputSelect('Current environment', 'current_environment', t.current_environment, ['—', 'Local', 'PR', 'Stage', 'Production'], writable && (canQA() || canDev()))}`,
+    ].join(''),
+    `<span class="muted-note">${ui('Follows development stage; you can override it.')}</span></div><div class="form-row task-responsibility">`,
+    `<div class="field"><label>Engineering owner</label><select class="task-field" data-key="assignee" ${writable && canQA() ? '' : 'disabled'}>${workflowMemberOptions('Engineering', t.assignee)}`,
+    `</select></div>${inputSelect('Priority', 'priority', t.priority, state.statuses.priorities, writable && canQA())}</div></details>`,
+  ].join('');
 }
 
 function renderEngineeringTaskInfo(d, writable, actions, defaultAction) {
   const t = d.task;
-  return `<details class="task-secondary"><summary>Task details & PR</summary><div class="detail-fields">${inputText('Title', 'title', t.title, writable && canQA())}<div class="field"><label>Description</label><textarea autocomplete="off" class="task-field" data-key="description" ${writable && canQA() ? '' : 'disabled'}>${e(t.description)}</textarea></div>${categoryPicker(t.category || 'General', { key: 'category', enabled: writable && (canQA() || canDev()) })}${parentTaskSelect(t, writable)}${inputSelect('Type', 'type', t.type, [...new Set([...state.statuses.types, t.type])], writable && canQA())}${inputText('GitHub PR URL', 'github_pr_url', t.github_pr_url, writable && canDev())}</div>${writable && canDev() ? '<button class="btn" id="sync-pr">Sync PR</button>' : ''}${writable ? `<details class="task-log"><summary>Record other work (optional)</summary><p class="muted-note">${ui('Record extra work here without changing the task stage. Use Next Step to confirm Engineering or QA results.')}</p><div class="field"><label>What happened?</label><textarea autocomplete="off" id="activity-notes" placeholder="${e(tr('e.g. Checked the updated page. The buttons now work.'))}" data-ui-placeholder="e.g. Checked the updated page. The buttons now work."></textarea></div><div class="field"><label>Result / summary</label><input autocomplete="off" id="activity-result" placeholder="${e(tr('e.g. Checked and working'))}" data-ui-placeholder="e.g. Checked and working"></div><div class="form-row">${activityTypeSelect(actions, defaultAction)}<div class="field"><label>Work date</label><input autocomplete="off" id="activity-date" data-suggested="true" class="suggested-value" type="date" value="${state.day}"></div></div><div class="form-row"><div class="field"><label>Environment</label><select id="activity-env">${option(['—', 'Local', 'PR', 'Stage', 'Production'], t.current_environment)}</select></div><div class="field"><label>Work role</label><select id="activity-role">${option(t.work_kind === 'PM Task' ? ['PM'] : ['Other', ...(state.user.groups || []).filter((g) => g !== 'Management')], t.work_kind === 'PM Task' ? 'PM' : 'Other')}</select></div>${evidencePicker('activity-files', 'activity', 'Images for this activity')}</div><div class="form-actions"><button class="btn primary" id="add-activity">Save activity</button></div></details>` : ''}</details>`;
+  return [
+    `<details class="task-secondary"><summary>Task details & PR</summary><div class="detail-fields">${inputText('Title', 'title', t.title, writable && canQA())}`,
+    `<div class="field"><label>Description</label><textarea autocomplete="off" class="task-field" data-key="description" ${writable && canQA() ? '' : 'disabled'}>${e(t.description)}`,
+    [
+      `</textarea></div>${categoryPicker(t.category || 'General', { key: 'category', enabled: writable && (canQA() || canDev()) })}`,
+      `${parentTaskSelect(t, writable)}${inputSelect('Type', 'type', t.type, [...new Set([...state.statuses.types, t.type])], writable && canQA())}`,
+      `${inputText('GitHub PR URL', 'github_pr_url', t.github_pr_url, writable && canDev())}`,
+    ].join(''),
+    `</div>${writable && canDev() ? '<button class="btn" id="sync-pr">Sync PR</button>' : ''}${
+      writable
+        ? [
+            `<details class="task-log"><summary>Record other work (optional)</summary><p class="muted-note">${ui('Record extra work here without changing the task stage. Use Next Step to confirm Engineering or QA results.')}`,
+            [
+              `</p><div class="field"><label>What happened?</label><textarea autocomplete="off" id="activity-notes" placeholder="`,
+              `${e(tr('e.g. Checked the updated page. The buttons now work.'))}" data-ui-placeholder="e.g. Checked the updated page. The buttons now work.">`,
+            ].join(''),
+            `</textarea></div><div class="field"><label>Result / summary</label><input autocomplete="off" id="activity-result" placeholder="${e(tr('e.g. Checked and working'))}" data-ui-placeholder="e.g. Checked and working">`,
+            `</div><div class="form-row">${activityTypeSelect(actions, defaultAction)}<div class="field"><label>Work date</label><input autocomplete="off" id="activity-date" data-suggested="true" class="suggested-value" `,
+            `type="date" value="${state.day}"></div></div><div class="form-row"><div class="field"><label>Environment</label><select id="activity-env">${option(['—', 'Local', 'PR', 'Stage', 'Production'], t.current_environment)}`,
+            `</select></div><div class="field"><label>Work role</label><select id="activity-role">${option(t.work_kind === 'PM Task' ? ['PM'] : ['Other', ...(state.user.groups || []).filter((g) => g !== 'Management')], t.work_kind === 'PM Task' ? 'PM' : 'Other')}`,
+            `</select></div>${evidencePicker('activity-files', 'activity', 'Images for this activity')}</div><div class="form-actions"><button class="btn primary" id="add-activity">Save activity`,
+            `</button></div></details>`,
+          ].join('')
+        : ''
+    }`,
+    `</details>`,
+  ].join('');
 }
 
 function renderEngineeringTaskTimeline(activity) {
@@ -2059,22 +2437,58 @@ function renderEngineeringTaskTimeline(activity) {
 }
 
 function renderEngineeringTaskDiscussion(d, writable) {
-  return `<details class="task-secondary" id="task-discussion"><summary>Discussion</summary>${
-    d.comments
-      .map(
-        (c) =>
-          `<div class="comment-box"><div class="head">${e(who(c.actor_email))}<span>${timeFmt(c.created_at)}</span></div>${commentReplyLink(c, d)}<div class="text">${e(c.body)}</div>${attachmentTiles(
-            d.attachments.filter((a) => a.comment_id === c.id),
-            writable,
-          )}${writable ? `<button type="button" class="account-link comment-reply-button" data-reply-comment="${e(c.id)}">Reply</button>${linkedEvidencePicker('comment-file-' + c.id, 'comment', c.id, 'Add images or files to this comment')}` : ''}</div>`,
-      )
-      .join('') || `<p class="muted-note">${ui('No comments yet.')}</p>`
-  }${writable ? `${discussionActionControls(d)}<div id="discussion-compose-anchor"><div class="reply" id="comment-composer"><div id="comment-reply-context" class="comment-reply-context" hidden></div><textarea autocomplete="off" id="comment-body" placeholder="${e(tr('e.g. Should this change apply to all users?'))}" data-ui-placeholder="e.g. Should this change apply to all users?"></textarea>${discussionRecipientPicker()}${evidencePicker('comment-files', 'comment', 'Images for this comment')}<button class="btn" id="add-comment">Post comment</button></div></div>` : ''}</details>`;
+  return [
+    [
+      `<details class="task-secondary" id="task-discussion"><summary>Discussion</summary>${
+        d.comments
+          .map((c) =>
+            [
+              `<div class="comment-box"><div class="head">${e(who(c.actor_email))}<span>${timeFmt(c.created_at)}</span></div>${commentReplyLink(c, d)}`,
+              [
+                `<div class="text">${e(c.body)}</div>${attachmentTiles(
+                  d.attachments.filter((a) => a.comment_id === c.id),
+                  writable,
+                )}`,
+                `${writable ? `<button type="button" class="account-link comment-reply-button" data-reply-comment="${e(c.id)}">Reply</button>${linkedEvidencePicker('comment-file-' + c.id, 'comment', c.id, 'Add images or files to this comment')}` : ''}`,
+              ].join(''),
+              `</div>`,
+            ].join(''),
+          )
+          .join('') || `<p class="muted-note">${ui('No comments yet.')}</p>`
+      }`,
+      `${
+        writable
+          ? [
+              `${discussionActionControls(d)}<div id="discussion-compose-anchor"><div class="reply" id="comment-composer"><div id="comment-reply-context" class="comment-reply-context" hidden>`,
+              `</div><textarea autocomplete="off" id="comment-body" placeholder="${e(tr('e.g. Should this change apply to all users?'))}" data-ui-placeholder="e.g. Should this change apply to all users?">`,
+              `</textarea>${discussionRecipientPicker()}${evidencePicker('comment-files', 'comment', 'Images for this comment')}<button class="btn" id="add-comment">Post comment`,
+              `</button></div></div>`,
+            ].join('')
+          : ''
+      }`,
+    ].join(''),
+    `</details>`,
+  ].join('');
 }
 
 function renderEngineeringTaskManagement(d, writable) {
   const t = d.task;
-  return `${canManage() ? `<section class="task-secondary task-manage" aria-label="Task actions"><div class="task-action-options"><button class="btn" id="${t.archived ? 'restore-task' : 'archive-task'}">${t.archived ? 'Restore task' : 'Archive task'}</button>${!t.archived && d.removal_mode !== 'Archived' ? '<button class="btn danger-link" id="remove-task">Delete task</button>' : ''}</div><p class="muted-note">${ui('Archive preserves history and can be restored. Tasks with shared work or released-version history are archived when removed.')}</p></section>` : ''}${writable ? `<p class="muted-note">${ui('Field changes save after confirmation. Follow Next Step for the workflow. Record other work in Task details & PR when needed.')}</p>` : ''}</div>`;
+  return [
+    `${
+      canManage()
+        ? [
+            [
+              `<section class="task-secondary task-manage" aria-label="Task actions"><div class="task-action-options">`,
+              `<button class="btn" id="${t.archived ? 'restore-task' : 'archive-task'}">${t.archived ? 'Restore task' : 'Archive task'}`,
+            ].join(''),
+            `</button>${!t.archived && d.removal_mode !== 'Archived' ? '<button class="btn danger-link" id="remove-task">Delete task</button>' : ''}`,
+            `</div><p class="muted-note">${ui('Archive preserves history and can be restored. Tasks with shared work or released-version history are archived when removed.')}`,
+            `</p></section>`,
+          ].join('')
+        : ''
+    }${writable ? `<p class="muted-note">${ui('Field changes save after confirmation. Follow Next Step for the workflow. Record other work in Task details & PR when needed.')}</p>` : ''}`,
+    `</div>`,
+  ].join('');
 }
 
 function renderDetail(d) {
@@ -2087,14 +2501,42 @@ function renderDetail(d) {
   const needsQa = d.workflow.phase === 'qa',
     needsDev = d.workflow.phase === 'development' && t.qa_status !== 'Not Tested';
   const activity = timelineRecords(d)
-    .map(
-      (a) =>
-        `<div class="timeline-item"><div class="timeline-top"><div class="timeline-actor">${e(who(a.actor_email))}<span class="timeline-kind">${e(a.action_type)}</span></div><div class="timeline-date">${dateFmt(a.activity_date)}</div></div><div class="timeline-result">${e(a.result)}</div>${a.notes ? `<div class="timeline-result">${e(a.notes)}</div>` : ''}${attachmentTiles(
-          d.attachments.filter(
-            (f) => f.activity_id === a.id || (a.comment_id && f.comment_id === a.comment_id),
-          ),
-          false,
-        )}${writable && a.action_type === 'QA Testing' && !a.excluded ? `<button class="account-link" data-reply-qa="${e(a.id)}">Reply</button>` : ''}${writable && !a.urgent_event && !a.comment_id && (a.actor_email === state.user.email || canManage()) ? `<button class="account-link" data-edit-shared-activity="${e(a.id)}">Edit activity</button>` : ''}${a.edit_history?.length ? `<details><summary>Edit history (${a.edit_history.length})</summary><p class="tracking-history">${e(a.original_notes)}</p>${a.edit_history.map((r) => `<p class="tracking-history">${e(timeFmt(r.recorded_at))} · ${e(who(r.actor_email))}<br>${e(r.notes)}</p>`).join('')}</details>` : ''}${a.attachment_history?.length ? `<details><summary>Attachment history</summary>${a.attachment_history.map((h) => `<p class="muted-note">${e(timeFmt(h.recorded_at))} · ${e(who(h.actor_email))} · ${e(h.action)} · ${e(h.filename)}</p>`).join('')}</details>` : ''}${a.excluded ? badge('Undone stage change · excluded from workload') : ''}<div class="muted-note">${a.is_work ? 'Work activity' : 'Record change'} · Recorded ${e(timeFmt(a.created_at))}</div></div>`,
+    .map((a) =>
+      [
+        `<div class="timeline-item"><div class="timeline-top"><div class="timeline-actor">${e(who(a.actor_email))}<span class="timeline-kind">${e(a.action_type)}`,
+        [
+          `</span></div><div class="timeline-date">${dateFmt(a.activity_date)}</div></div><div class="timeline-result">`,
+          `${e(a.result)}</div>${a.notes ? `<div class="timeline-result">${e(a.notes)}</div>` : ''}${attachmentTiles(
+            d.attachments.filter(
+              (f) => f.activity_id === a.id || (a.comment_id && f.comment_id === a.comment_id),
+            ),
+            false,
+          )}`,
+          `${writable && a.action_type === 'QA Testing' && !a.excluded ? `<button class="account-link" data-reply-qa="${e(a.id)}">Reply</button>` : ''}`,
+          `${writable && !a.urgent_event && !a.comment_id && (a.actor_email === state.user.email || canManage()) ? `<button class="account-link" data-edit-shared-activity="${e(a.id)}">Edit activity</button>` : ''}`,
+          `${
+            a.edit_history?.length
+              ? [
+                  [
+                    `<details><summary>Edit history (${a.edit_history.length})</summary><p class="tracking-history">${e(a.original_notes)}`,
+                    `</p>${a.edit_history.map((r) => `<p class="tracking-history">${e(timeFmt(r.recorded_at))} · ${e(who(r.actor_email))}<br>${e(r.notes)}</p>`).join('')}`,
+                  ].join(''),
+                  `</details>`,
+                ].join('')
+              : ''
+          }`,
+          `${
+            a.attachment_history?.length
+              ? [
+                  `<details><summary>Attachment history</summary>${a.attachment_history.map((h) => `<p class="muted-note">${e(timeFmt(h.recorded_at))} · ${e(who(h.actor_email))} · ${e(h.action)} · ${e(h.filename)}</p>`).join('')}`,
+                  `</details>`,
+                ].join('')
+              : ''
+          }`,
+          `${a.excluded ? badge('Undone stage change · excluded from workload') : ''}`,
+        ].join(''),
+        `<div class="muted-note">${a.is_work ? 'Work activity' : 'Record change'} · Recorded ${e(timeFmt(a.created_at))}</div></div>`,
+      ].join(''),
     )
     .join('');
   const actions = state.statuses.actions.filter(
@@ -2156,14 +2598,24 @@ function privateActivityAssociation(workItem = '', preserveCompleted = false) {
         ? selected
         : own.find((i) => i.id === selected?.parent_id && i.kind === 'Project');
   if (project)
-    return `<div class="field"><label>Project</label><div class="report-intro">${e(project.title)}</div></div><div class="field"><label>Activity belongs to</label><select id="office-item"><option value="${e(project.id)}" ${selected.id === project.id ? 'selected' : ''}>Project itself</option>${own
-      .filter((i) => i.kind === 'Task' && i.parent_id === project.id)
-      .map(
-        (i) =>
-          `<option value="${e(i.id)}" ${i.id === workItem ? 'selected' : ''}>Task · ${e(i.title)}</option>`,
-      )
-      .join('')}</select></div>`;
-  return `<div class="field"><label>Private project / task (optional)</label><select id="office-item"><option value="">Standalone activity</option>${own.map((i) => `<option value="${e(i.id)}" ${i.id === workItem ? 'selected' : ''}>${e(i.kind)} · ${e(i.title)}</option>`).join('')}</select></div>`;
+    return [
+      `<div class="field"><label>Project</label><div class="report-intro">${e(project.title)}</div></div><div class="field"><label>Activity belongs to`,
+      `</label><select id="office-item"><option value="${e(project.id)}" ${selected.id === project.id ? 'selected' : ''}>Project itself</option>${own
+        .filter((i) => i.kind === 'Task' && i.parent_id === project.id)
+        .map(
+          (i) =>
+            `<option value="${e(i.id)}" ${i.id === workItem ? 'selected' : ''}>Task · ${e(i.title)}</option>`,
+        )
+        .join('')}`,
+      `</select></div>`,
+    ].join('');
+  return [
+    [
+      `<div class="field"><label>Private project / task (optional)</label><select id="office-item"><option value="">Standalone activity`,
+      `</option>${own.map((i) => `<option value="${e(i.id)}" ${i.id === workItem ? 'selected' : ''}>${e(i.kind)} · ${e(i.title)}</option>`).join('')}`,
+    ].join(''),
+    `</select></div>`,
+  ].join('');
 }
 async function openPrivateActivity(iid) {
   const d = await api('/private-work');
@@ -2218,36 +2670,98 @@ function modal(
     title = '';
   if (kind === 'task') {
     title = 'New task';
-    markup = `<p class="task-create-intro">${ui('Describe the request, choose an engineer, and add the details they need to review it.')}</p><section class="task-create-section"><div class="field"><label for="new-title">Task title *</label><input autocomplete="off" id="new-title" maxlength="160" placeholder="${e(tr('e.g. Fix a login issue'))}" data-ui-placeholder="e.g. Fix a login issue" autofocus></div><div class="field"><label for="new-description">Requirements / reproduction steps</label><textarea autocomplete="off" id="new-description" placeholder="${e(tr('e.g. Users cannot sign in. They should be able to open their account.'))}" data-ui-placeholder="e.g. Users cannot sign in. They should be able to open their account."></textarea></div></section><section class="task-create-section"><h3 class="card-title">Task details</h3><div class="task-create-grid"><div class="field"><label>Work type</label><select id="new-work-kind">${option(['Engineering', 'Quick Task', ...(canManage() || state.user.groups.includes('PM') || state.user.groups.includes('Engineering') ? ['PM Task'] : [])], defaultNewWorkKind(state.user))}</select></div><div class="field"><label>Planning status</label><select id="new-planning-status">${option(['Active', 'Planned', 'Backlog'], 'Active')}</select></div><div class="field" hidden><label>PM work category</label><select id="new-work-category">${option(pmCategories, pmCategories[0])}</select></div></div><div class="task-create-grid">${inputSelect('Type', 'new-type', 'New Feature', state.statuses.types)}${inputSelect('Priority', 'new-priority', 'Medium', state.statuses.priorities)}${categoryPicker('General', { id: 'new-category' })}</div><div class="task-create-grid two"><div class="field"><label for="new-assignee">Assignee</label><select id="new-assignee">${workflowMemberOptions('Engineering')}</select></div><div class="field"><label for="new-parent">Parent task (optional)</label><select id="new-parent"><option value="">No parent task</option>${state.tasks
-      .filter((t) => t.work_kind === 'Engineering')
-      .map((t) => `<option value="${e(t.id)}">${e(t.title)}</option>`)
-      .join(
-        '',
-      )}</select></div></div><p class="muted-note">${ui('The engineer reviews feasibility first. Confirm merged to Stage and assign QA in the same step.')}</p></section><section class="task-create-section task-create-attachments"><h3 class="card-title">Attachments (optional)</h3>${evidencePicker('new-task-files', 'new-task', 'Images & files')}<p class="muted-note">${ui('Add reference images or files now. Each file can be up to 8 MB.')}</p><p id="new-task-upload-error" class="danger-link" role="alert"></p></section>`;
+    markup = [
+      `<p class="task-create-intro">${ui('Describe the request, choose an engineer, and add the details they need to review it.')}</p><section class="task-create-section">`,
+      `<div class="field"><label for="new-title">Task title *</label><input autocomplete="off" id="new-title" maxlength="160" placeholder="${e(tr('e.g. Fix a login issue'))}" data-ui-placeholder="e.g. Fix a login issue" `,
+      [
+        `autofocus></div><div class="field"><label for="new-description">Requirements / reproduction steps`,
+        `</label><textarea autocomplete="off" id="new-description" placeholder="${e(tr('e.g. Users cannot sign in. They should be able to open their account.'))}" `,
+      ].join(''),
+      `data-ui-placeholder="e.g. Users cannot sign in. They should be able to open their account."></textarea></div></section><section class="task-create-section">`,
+      [
+        `<h3 class="card-title">Task details</h3><div class="task-create-grid"><div class="field"><label>Work type`,
+        `</label><select id="new-work-kind">${option(['Engineering', 'Quick Task', ...(canManage() || state.user.groups.includes('PM') || state.user.groups.includes('Engineering') ? ['PM Task'] : [])], defaultNewWorkKind(state.user))}`,
+      ].join(''),
+      `</select></div><div class="field"><label>Planning status</label><select id="new-planning-status">${option(['Active', 'Planned', 'Backlog'], 'Active')}`,
+      `</select></div><div class="field" hidden><label>PM work category</label><select id="new-work-category">${option(pmCategories, pmCategories[0])}`,
+      [
+        `</select></div></div><div class="task-create-grid">${inputSelect('Type', 'new-type', 'New Feature', state.statuses.types)}`,
+        `${inputSelect('Priority', 'new-priority', 'Medium', state.statuses.priorities)}${categoryPicker('General', { id: 'new-category' })}`,
+      ].join(''),
+      `</div><div class="task-create-grid two"><div class="field"><label for="new-assignee">Assignee</label><select id="new-assignee">${workflowMemberOptions('Engineering')}`,
+      `</select></div><div class="field"><label for="new-parent">Parent task (optional)</label><select id="new-parent"><option value="">No parent task`,
+      `</option>${state.tasks
+        .filter((t) => t.work_kind === 'Engineering')
+        .map((t) => `<option value="${e(t.id)}">${e(t.title)}</option>`)
+        .join('')}`,
+      `</select></div></div><p class="muted-note">${ui('The engineer reviews feasibility first. Confirm merged to Stage and assign QA in the same step.')}`,
+      `</p></section><section class="task-create-section task-create-attachments"><h3 class="card-title">Attachments (optional)</h3>${evidencePicker('new-task-files', 'new-task', 'Images & files')}`,
+      `<p class="muted-note">${ui('Add reference images or files now. Each file can be up to 8 MB.')}</p><p id="new-task-upload-error" class="danger-link" role="alert">`,
+      `</p></section>`,
+    ].join('');
   } else if (kind === 'office') {
     title = 'Add daily work';
-    markup = `<div class="report-intro">${ui('Only you and the manager can view your private work.')}</div><div class="daily-entry-mode" role="group" aria-label="Work type"><button type="button" data-daily-mode="activity" aria-pressed="true">Activity</button><button type="button" data-daily-mode="task" aria-pressed="false">Task</button></div><input autocomplete="off" type="hidden" id="daily-entry-mode" value="activity"><div id="daily-activity-fields"><div class="field"><label>Work title *</label><input autocomplete="off" id="office-title" placeholder="${e(tr('e.g. Update the price list'))}" data-ui-placeholder="e.g. Update the price list"></div><div class="form-row"><div class="field"><label>Work date</label><input autocomplete="off" type="date" id="office-date" value="${state.day}"></div><div class="field"><label>Category</label><select id="office-category">${option(['Work', 'Meeting', 'Other'], 'Work')}</select></div><input autocomplete="off" type="hidden" id="office-status" value=""></div>${privateActivityAssociation(workItem, preserveCompleted)}<div class="field" id="office-minutes-field"><label>Time spent (minutes, optional)</label><input autocomplete="off" id="office-minutes" type="number" min="0" max="1440"></div><div class="field"><label>Details</label><textarea autocomplete="off" id="office-details" placeholder="${e(tr('e.g. Updated the price list. Waiting for approval.'))}" data-ui-placeholder="e.g. Updated the price list. Waiting for approval."></textarea></div><div id="office-recurrence-controls" class="cycle-control" hidden><label class="completion-choice"><input autocomplete="off" type="checkbox" id="office-complete-cycle"><span class="completion-choice-mark" aria-hidden="true">✓</span><span>${ui('Complete this occurrence')}</span></label><p class="muted-note" id="office-cycle-info"></p></div>${completeTaskControl('office')}${evidencePicker('daily-activity-files', 'daily-activity', 'Images for this activity')}</div><div id="daily-task-fields" hidden><p class="muted-note">${ui('Add a task for ongoing or already completed work. Log dated progress as activities when you work on it.')}</p><div class="field"><label>Task title *</label><input autocomplete="off" id="daily-task-title" maxlength="180" placeholder="${e(tr('e.g. Prepare the monthly report'))}" data-ui-placeholder="e.g. Prepare the monthly report"></div><div class="field"><label>Project (optional)</label><select id="daily-task-parent"><option value="">Standalone task</option>${state.privateItems
-      .filter(
-        (i) =>
-          i.kind === 'Project' &&
-          !i.archived &&
-          i.owner_email === state.user.email &&
-          (i.status !== 'Completed' || i.id === parent),
-      )
-      .map(
-        (i) =>
-          `<option value="${e(i.id)}" ${i.id === parent ? 'selected' : ''}>${e(i.title)}</option>`,
-      )
-      .join(
-        '',
-      )}</select></div><div class="field"><label for="daily-task-status">Status</label><select id="daily-task-status">${option(['In Progress', 'Waiting', 'Completed'], 'In Progress')}</select><p class="muted-note">${ui('Choose Completed for finished work. Completed tasks appear under Completed or All work; add a dated activity to record the work you did.')}</p></div><div class="field" id="daily-task-completed-date-field" hidden><label for="daily-task-completed-date">Completed date *</label><input autocomplete="off" id="daily-task-completed-date" type="date" value="${todayDate()}"></div><div class="field"><label>Description</label><textarea autocomplete="off" id="daily-task-description" placeholder="${e(tr('e.g. Check the latest prices and update the price list.'))}" data-ui-placeholder="e.g. Check the latest prices and update the price list."></textarea></div>${recurrenceFields('daily-task')}${evidencePicker('daily-task-files', 'daily-task', 'Task images')}</div><p id="daily-upload-error" role="alert"></p>`;
+    markup = [
+      `<div class="report-intro">${ui('Only you and the manager can view your private work.')}</div><div class="daily-entry-mode" role="group" aria-label="Work type">`,
+      `<button type="button" data-daily-mode="activity" aria-pressed="true">Activity</button><button type="button" data-daily-mode="task" aria-pressed="false">Task`,
+      `</button></div><input autocomplete="off" type="hidden" id="daily-entry-mode" value="activity"><div id="daily-activity-fields"><div class="field">`,
+      `<label>Work title *</label><input autocomplete="off" id="office-title" placeholder="${e(tr('e.g. Update the price list'))}" data-ui-placeholder="e.g. Update the price list">`,
+      `</div><div class="form-row"><div class="field"><label>Work date</label><input autocomplete="off" type="date" id="office-date" value="${state.day}">`,
+      `</div><div class="field"><label>Category</label><select id="office-category">${option(['Work', 'Meeting', 'Other'], 'Work')}</select>`,
+      `</div><input autocomplete="off" type="hidden" id="office-status" value=""></div>${privateActivityAssociation(workItem, preserveCompleted)}`,
+      `<div class="field" id="office-minutes-field"><label>Time spent (minutes, optional)</label><input autocomplete="off" id="office-minutes" type="number" min="0" max="1440">`,
+      [
+        `</div><div class="field"><label>Details</label><textarea autocomplete="off" id="office-details" placeholder="`,
+        `${e(tr('e.g. Updated the price list. Waiting for approval.'))}" data-ui-placeholder="e.g. Updated the price list. Waiting for approval.">`,
+      ].join(''),
+      `</textarea></div><div id="office-recurrence-controls" class="cycle-control" hidden><label class="completion-choice"><input autocomplete="off" type="checkbox" id="office-complete-cycle">`,
+      `<span class="completion-choice-mark" aria-hidden="true">✓</span><span>${ui('Complete this occurrence')}</span></label><p class="muted-note" id="office-cycle-info">`,
+      `</p></div>${completeTaskControl('office')}${evidencePicker('daily-activity-files', 'daily-activity', 'Images for this activity')}</div>`,
+      `<div id="daily-task-fields" hidden><p class="muted-note">${ui('Add a task for ongoing or already completed work. Log dated progress as activities when you work on it.')}`,
+      [
+        `</p><div class="field"><label>Task title *</label><input autocomplete="off" id="daily-task-title" maxlength="180" placeholder="`,
+        `${e(tr('e.g. Prepare the monthly report'))}" data-ui-placeholder="e.g. Prepare the monthly report">`,
+      ].join(''),
+      `</div><div class="field"><label>Project (optional)</label><select id="daily-task-parent"><option value="">Standalone task</option>${state.privateItems
+        .filter(
+          (i) =>
+            i.kind === 'Project' &&
+            !i.archived &&
+            i.owner_email === state.user.email &&
+            (i.status !== 'Completed' || i.id === parent),
+        )
+        .map(
+          (i) =>
+            `<option value="${e(i.id)}" ${i.id === parent ? 'selected' : ''}>${e(i.title)}</option>`,
+        )
+        .join('')}`,
+      `</select></div><div class="field"><label for="daily-task-status">Status</label><select id="daily-task-status">${option(['In Progress', 'Waiting', 'Completed'], 'In Progress')}`,
+      `</select><p class="muted-note">${ui('Choose Completed for finished work. Completed tasks appear under Completed or All work; add a dated activity to record the work you did.')}`,
+      `</p></div><div class="field" id="daily-task-completed-date-field" hidden><label for="daily-task-completed-date">Completed date *</label>`,
+      `<input autocomplete="off" id="daily-task-completed-date" type="date" value="${todayDate()}"></div><div class="field"><label>Description`,
+      `</label><textarea autocomplete="off" id="daily-task-description" placeholder="${e(tr('e.g. Check the latest prices and update the price list.'))}" data-ui-placeholder="e.g. Check the latest prices and update the price list.">`,
+      `</textarea></div>${recurrenceFields('daily-task')}${evidencePicker('daily-task-files', 'daily-task', 'Task images')}</div><p id="daily-upload-error" role="alert">`,
+      `</p>`,
+    ].join('');
   } else if (kind === 'user') {
     title = 'Add or update team member';
-    markup = `<div class="field"><label>Email address (login account)</label><input autocomplete="off" id="user-email" type="email" placeholder="teammate@example.com"></div><div class="field"><label>Display name</label><input autocomplete="off" id="user-name" placeholder="Teammate"></div><div class="field"><label>Role</label><select id="user-role">${option(['admin', 'member'], 'member')}</select></div><div class="field"><label>Work groups</label><div class="work-group-options">${(state.statuses.work_groups || ['Engineering', 'QA', 'Management']).map((g) => `<label class="work-group-option"><input autocomplete="off" type="checkbox" name="user-group" value="${g}"><span>${g === 'Management' ? 'Manager' : g}</span></label>`).join('')}</div></div><div class="field"><label class="work-group-option"><input autocomplete="off" type="checkbox" id="user-language-switch"><span>Allow language switching</span></label><p class="muted-note">${ui('Off by default. Enable to let this member switch between 中文 and English. Without it, the interface stays in English.')}</p></div><div class="report-intro">${ui('Engineering and QA are independent of system role. Management provides the team overview. Combine it with a work group to enable My work and Team overview. Admin permissions come from the system role. Set a password after saving.')}</div>`;
+    markup = [
+      `<div class="field"><label>Email address (login account)</label><input autocomplete="off" id="user-email" type="email" placeholder="teammate@example.com">`,
+      `</div><div class="field"><label>Display name</label><input autocomplete="off" id="user-name" placeholder="Teammate"></div><div class="field">`,
+      `<label>Role</label><select id="user-role">${option(['admin', 'member'], 'member')}</select></div><div class="field"><label>Work groups`,
+      `</label><div class="work-group-options">${(state.statuses.work_groups || ['Engineering', 'QA', 'Management']).map((g) => `<label class="work-group-option"><input autocomplete="off" type="checkbox" name="user-group" value="${g}"><span>${g === 'Management' ? 'Manager' : g}</span></label>`).join('')}`,
+      `</div></div><div class="field"><label class="work-group-option"><input autocomplete="off" type="checkbox" id="user-language-switch">`,
+      `<span>Allow language switching</span></label><p class="muted-note">${ui('Off by default. Enable to let this member switch between 中文 and English. Without it, the interface stays in English.')}`,
+      `</p></div><div class="report-intro">${ui('Engineering and QA are independent of system role. Management provides the team overview. Combine it with a work group to enable My work and Team overview. Admin permissions come from the system role. Set a password after saving.')}`,
+      `</div>`,
+    ].join('');
   }
   $('#modal-content').classList.toggle('task-create-modal', kind === 'task');
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>${title}</h2><button class="close" data-close="modal">×</button></div>${markup}<div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" data-save-modal="${kind}">${kind === 'task' ? 'Create task' : 'Save record'}</button></div>`;
+  $('#modal-content').innerHTML = [
+    `<div class="modal-head"><h2>${title}</h2><button class="close" data-close="modal">×</button></div>${markup}<div class="form-actions">`,
+    `<button class="btn" data-close="modal">Cancel</button><button class="btn primary" data-save-modal="${kind}">${kind === 'task' ? 'Create task' : 'Save record'}`,
+    `</button></div>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#modal-content').scrollTop = 0;
   $('#modal-shade').scrollTop = 0;
@@ -2818,8 +3332,21 @@ async function showLogin() {
   $('#nav').hidden = true;
   $('.top-actions').hidden = true;
   const status = await api('/auth/status');
-  $('#content').innerHTML =
-    `<div class="auth-card"><div class="eyebrow">WORK TRACKER</div><h1>${status.setupAvailable ? 'Set your password' : 'Sign in'}</h1><p class="subtitle">${ui('Use your Work Tracker email and password.')}</p><form autocomplete="on" id="login-form"><div class="field"><label for="login-email">Email</label><input autocomplete="username" id="login-email" type="email" value="${e(status.setupEmail || '')}" ${status.setupAvailable ? 'readonly' : ''} required></div><div class="field"><label for="login-password">Password</label><input autocomplete="${status.setupAvailable ? 'new-password' : 'current-password'}" id="login-password" type="password" ${status.setupAvailable ? 'minlength="12"' : ''} maxlength="256" required></div><p id="login-error" role="alert"></p><button class="btn primary" type="submit">${status.setupAvailable ? 'Set password and sign in' : 'Sign in'}</button></form>${status.setupAvailable ? `<p class="muted-note">${ui('Choose at least 12 characters.')}</p>` : ''}</div>`;
+  $('#content').innerHTML = [
+    `<div class="auth-card"><div class="eyebrow">WORK TRACKER</div><h1>${status.setupAvailable ? 'Set your password' : 'Sign in'}</h1><p class="subtitle">${ui('Use your Work Tracker email and password.')}`,
+    [
+      `</p><form autocomplete="on" id="login-form"><div class="field"><label for="login-email">Email</label>`,
+      `<input autocomplete="username" id="login-email" type="email" value="${e(status.setupEmail || '')}" `,
+      `${status.setupAvailable ? 'readonly' : ''} `,
+    ].join(''),
+    [
+      `required></div><div class="field"><label for="login-password">Password</label><input autocomplete="`,
+      `${status.setupAvailable ? 'new-password' : 'current-password'}" id="login-password" type="password" `,
+      `${status.setupAvailable ? 'minlength="12"' : ''} `,
+    ].join(''),
+    `maxlength="256" required></div><p id="login-error" role="alert"></p><button class="btn primary" type="submit">${status.setupAvailable ? 'Set password and sign in' : 'Sign in'}`,
+    `</button></form>${status.setupAvailable ? `<p class="muted-note">${ui('Choose at least 12 characters.')}</p>` : ''}</div>`,
+  ].join('');
   $('#login-form').onsubmit = async (ev) => {
     ev.preventDefault();
     const btn = ev.target.querySelector('button');
@@ -2904,8 +3431,15 @@ function passwordModal(email = state.user.email) {
         ? 'Reset password'
         : 'Set password';
   $('#modal-content').classList.remove('image-preview', 'task-create-modal');
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>${title}</h2><button class="close" data-close="modal">×</button></div><p class="muted-note">${e(email)}</p>${instructionFor('account')}<form autocomplete="off" id="member-password-form">${self ? '<div class="field"><label for="current-password">Current password</label><input autocomplete="off" id="current-password" type="password" maxlength="256" required></div>' : ''}<div class="field"><label for="member-password">New password</label><input autocomplete="off" id="member-password" type="password" minlength="12" maxlength="256" required><p class="muted-note">${ui('Use at least 12 characters.')}</p></div><div class="field"><label for="confirm-password">Confirm new password</label><input autocomplete="off" id="confirm-password" type="password" minlength="12" maxlength="256" required></div><p id="password-error" class="danger-link" role="alert"></p><div class="form-actions"><button type="button" class="btn" data-close="modal">Cancel</button><button class="btn primary" type="submit">${self ? 'Change password' : 'Save password'}</button></div></form>`;
+  $('#modal-content').innerHTML = [
+    `<div class="modal-head"><h2>${title}</h2><button class="close" data-close="modal">×</button></div><p class="muted-note">${e(email)}`,
+    `</p>${instructionFor('account')}<form autocomplete="off" id="member-password-form">${self ? '<div class="field"><label for="current-password">Current password</label><input autocomplete="off" id="current-password" type="password" maxlength="256" required></div>' : ''}`,
+    `<div class="field"><label for="member-password">New password</label><input autocomplete="off" id="member-password" type="password" minlength="12" maxlength="256" required>`,
+    `<p class="muted-note">${ui('Use at least 12 characters.')}</p></div><div class="field"><label for="confirm-password">Confirm new password`,
+    `</label><input autocomplete="off" id="confirm-password" type="password" minlength="12" maxlength="256" required></div><p id="password-error" class="danger-link" role="alert">`,
+    `</p><div class="form-actions"><button type="button" class="btn" data-close="modal">Cancel</button><button class="btn primary" type="submit">${self ? 'Change password' : 'Save password'}`,
+    `</button></div></form>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#member-password-form').onsubmit = async (ev) => {
     ev.preventDefault();
@@ -2986,8 +3520,21 @@ async function loadReleases() {
 function openReleasePlan() {
   if (!canDev() || state.view !== 'releases') return;
   $('#modal-content').classList.remove('image-preview', 'task-create-modal');
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>Plan a version</h2><button class="close" data-close="modal" aria-label="Close plan">×</button></div><p class="muted-note">${ui('Schedule a future version, including next month. You can choose its tasks after creating the plan.')}</p><form autocomplete="off" id="release-plan-form"><div class="field"><label for="plan-version-name">Version name *</label><input autocomplete="off" id="plan-version-name" required maxlength="60" placeholder="${e(tr('e.g. v1.2.0'))}" data-ui-placeholder="e.g. v1.2.0"></div><div class="field"><label for="plan-version-date">Planned date *</label><input autocomplete="off" id="plan-version-date" required type="date"></div><div class="field"><label for="plan-version-notes">Plan notes</label><textarea autocomplete="off" id="plan-version-notes" placeholder="${e(tr('e.g. Improve search and fix the sign-in issue.'))}" data-ui-placeholder="e.g. Improve search and fix the sign-in issue."></textarea></div><p id="plan-version-error" role="alert"></p><div class="form-actions"><button type="button" class="btn" data-close="modal">Cancel</button><button type="submit" class="btn primary">Create plan</button></div></form>`;
+  $('#modal-content').innerHTML = [
+    [
+      `<div class="modal-head"><h2>Plan a version</h2><button class="close" data-close="modal" aria-label="Close plan">×`,
+      `</button></div><p class="muted-note">${ui('Schedule a future version, including next month. You can choose its tasks after creating the plan.')}`,
+    ].join(''),
+    [
+      `</p><form autocomplete="off" id="release-plan-form"><div class="field"><label for="plan-version-name">Version name *`,
+      `</label><input autocomplete="off" id="plan-version-name" required maxlength="60" placeholder="${e(tr('e.g. v1.2.0'))}" `,
+    ].join(''),
+    `data-ui-placeholder="e.g. v1.2.0"></div><div class="field"><label for="plan-version-date">Planned date *</label><input autocomplete="off" id="plan-version-date" required type="date">`,
+    `</div><div class="field"><label for="plan-version-notes">Plan notes</label><textarea autocomplete="off" id="plan-version-notes" placeholder="${e(tr('e.g. Improve search and fix the sign-in issue.'))}" `,
+    `data-ui-placeholder="e.g. Improve search and fix the sign-in issue."></textarea></div><p id="plan-version-error" role="alert"></p><div class="form-actions">`,
+    `<button type="button" class="btn" data-close="modal">Cancel</button><button type="submit" class="btn primary">Create plan</button></div>`,
+    `</form>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#plan-version-name').focus();
   $('#release-plan-form').onsubmit = async (ev) => {
@@ -3044,19 +3591,32 @@ function releaseItems(r) {
 function releasePreview(r) {
   const items = releaseItems(r),
     projects = [...new Set(items.map((t) => t.project).filter((p) => p && p !== 'CRM'))];
-  return `<div class="version-preview">${projects.length ? `<p class="version-projects">${e(projects.join(' · '))}</p>` : ''}${
-    items.length
-      ? `<ul class="version-changes">${items
-          .slice(0, 5)
-          .map(
-            (t) =>
-              `<li><button type="button" class="version-task-link" data-open="${e(t.id)}">${e(t.title)}</button>${r.status === 'Planned' ? `<span class="release-readiness ${releaseReady(t) ? 'ready' : 'pending'}">${releaseReady(t) ? 'Ready for release' : releaseQaApproved(t) ? 'Ready to deploy' : 'Not ready'}</span>` : ''}</li>`,
-          )
-          .join(
-            '',
-          )}</ul>${items.length > 5 ? `<p class="muted-note">${ui('{count} more changes', { count: items.length - 5 })}</p>` : ''}`
-      : `<p class="muted-note">${ui('No tasks selected. Open the plan to choose Engineering Board tasks.')}</p>`
-  }${r.notes ? `<p class="version-notes-preview">${e(r.notes.slice(0, 220))}${r.notes.length > 220 ? '…' : ''}</p>` : ''}</div>`;
+  return [
+    [
+      `<div class="version-preview">${projects.length ? `<p class="version-projects">${e(projects.join(' · '))}</p>` : ''}`,
+      `${
+        items.length
+          ? [
+              `<ul class="version-changes">${items
+                .slice(0, 5)
+                .map((t) =>
+                  [
+                    [
+                      `<li><button type="button" class="version-task-link" data-open="${e(t.id)}">${e(t.title)}</button>`,
+                      `${r.status === 'Planned' ? `<span class="release-readiness ${releaseReady(t) ? 'ready' : 'pending'}">${releaseReady(t) ? 'Ready for release' : releaseQaApproved(t) ? 'Ready to deploy' : 'Not ready'}</span>` : ''}`,
+                    ].join(''),
+                    `</li>`,
+                  ].join(''),
+                )
+                .join('')}`,
+              `</ul>${items.length > 5 ? `<p class="muted-note">${ui('{count} more changes', { count: items.length - 5 })}</p>` : ''}`,
+            ].join('')
+          : `<p class="muted-note">${ui('No tasks selected. Open the plan to choose Engineering Board tasks.')}</p>`
+      }`,
+      `${r.notes ? `<p class="version-notes-preview">${e(r.notes.slice(0, 220))}${r.notes.length > 220 ? '…' : ''}</p>` : ''}`,
+    ].join(''),
+    `</div>`,
+  ].join('');
 }
 function renderReleases() {
   const root = $('#release-results');
@@ -3073,14 +3633,27 @@ function renderReleases() {
               )),
       ),
     next = ordered.find((r) => r.status === 'Planned');
-  root.innerHTML = `<div class="release-toolbar"><span class="muted-note">${ui('Keep future plans here. The next Wednesday plan opens after the current version is released.')}</span></div><div class="version-card-list">${
-    ordered
-      .map((r) => {
-        const open = releaseEditorOpen && r.id === selectedRelease;
-        return `<section class="version-card ${r.status === 'Planned' ? 'is-planned' : ''}"><button type="button" class="version-card-head" data-release="${e(r.id)}" aria-expanded="${open}"><span><strong>${r.status === 'Planned' ? (r.id === next.id ? 'Next release' : 'Planned release') : 'Previous release'} · ${e(dateFmt(r.released_date || r.planned_date))}</strong><small>${e(r.version)}</small></span><span class="version-status-tags">${badge(r.status)}${releaseIsOverdue(r) ? badge('Overdue') : ''}</span></button>${releasePreview(r)}<div class="version-card-footer"><button type="button" class="account-link" data-release="${e(r.id)}" aria-expanded="${open}">${open ? 'Close details' : r.status === 'Planned' && canDev() ? 'Review plan' : 'View details'}</button></div>${open ? `<div class="version-expanded" id="release-detail">${releaseDetail(r)}</div>` : ''}</section>`;
-      })
-      .join('') || empty('No versions yet', 'Use + Plan to schedule a version.')
-  }</div>`;
+  root.innerHTML = [
+    `<div class="release-toolbar"><span class="muted-note">${ui('Keep future plans here. The next Wednesday plan opens after the current version is released.')}`,
+    `</span></div><div class="version-card-list">${
+      ordered
+        .map((r) => {
+          const open = releaseEditorOpen && r.id === selectedRelease;
+          return [
+            `<section class="version-card ${r.status === 'Planned' ? 'is-planned' : ''}"><button type="button" class="version-card-head" data-release="${e(r.id)}" aria-expanded="${open}">`,
+            `<span><strong>${r.status === 'Planned' ? (r.id === next.id ? 'Next release' : 'Planned release') : 'Previous release'} · ${e(dateFmt(r.released_date || r.planned_date))}`,
+            `</strong><small>${e(r.version)}</small></span><span class="version-status-tags">${badge(r.status)}${releaseIsOverdue(r) ? badge('Overdue') : ''}`,
+            [
+              `</span></button>${releasePreview(r)}<div class="version-card-footer"><button type="button" class="account-link" data-release="`,
+              `${e(r.id)}" aria-expanded="${open}">${open ? 'Close details' : r.status === 'Planned' && canDev() ? 'Review plan' : 'View details'}`,
+            ].join(''),
+            `</button></div>${open ? `<div class="version-expanded" id="release-detail">${releaseDetail(r)}</div>` : ''}</section>`,
+          ].join('');
+        })
+        .join('') || empty('No versions yet', 'Use + Plan to schedule a version.')
+    }`,
+    `</div>`,
+  ].join('');
   root.querySelectorAll('[data-release]').forEach(
     (b) =>
       (b.onclick = () => {
@@ -3159,21 +3732,34 @@ function releaseTaskPicker(r) {
       items: available.filter((t) => releaseReservation(t.id, r.id)),
     },
   ];
-  return `<div class="release-task-picker">${
-    groups
-      .map((g) =>
-        g.items.length
-          ? `<section class="release-picker-group"><div class="release-picker-heading"><h4>${g.title}</h4><p>${ui(g.description)}</p></div>${g.items
-              .map((t) => {
-                const reserved = releaseReservation(t.id, r.id);
-                return `<label class="release-task-option ${reserved ? 'is-reserved' : ''}"><input autocomplete="off" type="checkbox" name="release-task" value="${e(t.id)}" ${ids.includes(t.id) ? 'checked' : ''} ${reserved ? 'disabled' : ''}><span><strong>${e(t.title)}</strong><small>${r.auto_candidates?.includes(t.id) ? 'Auto · ' : ''}${e(t.type)} · ${e(t.development_status)} · QA: ${e(t.qa_status)}</small>${reserved ? `<small>${ui('Selected in {version}', { version: reserved.version })}</small>` : ''}</span></label>`;
-              })
-              .join('')}</section>`
-          : '',
-      )
-      .join('') ||
-    `<p class="muted-note">${ui(state.tasks.length ? 'All available tasks are already in released versions.' : 'No Engineering Board tasks yet.')}</p>`
-  }</div>`;
+  return [
+    `<div class="release-task-picker">${
+      groups
+        .map((g) =>
+          g.items.length
+            ? [
+                [
+                  `<section class="release-picker-group"><div class="release-picker-heading"><h4>${g.title}</h4><p>`,
+                  `${ui(g.description)}</p></div>${g.items
+                    .map((t) => {
+                      const reserved = releaseReservation(t.id, r.id);
+                      return [
+                        `<label class="release-task-option ${reserved ? 'is-reserved' : ''}"><input autocomplete="off" type="checkbox" name="release-task" value="${e(t.id)}" ${ids.includes(t.id) ? 'checked' : ''} ${reserved ? 'disabled' : ''}>`,
+                        `<span><strong>${e(t.title)}</strong><small>${r.auto_candidates?.includes(t.id) ? 'Auto · ' : ''}${e(t.type)} · ${e(t.development_status)} · QA: ${e(t.qa_status)}`,
+                        `</small>${reserved ? `<small>${ui('Selected in {version}', { version: reserved.version })}</small>` : ''}</span></label>`,
+                      ].join('');
+                    })
+                    .join('')}`,
+                ].join(''),
+                `</section>`,
+              ].join('')
+            : '',
+        )
+        .join('') ||
+      `<p class="muted-note">${ui(state.tasks.length ? 'All available tasks are already in released versions.' : 'No Engineering Board tasks yet.')}</p>`
+    }`,
+    `</div>`,
+  ].join('');
 }
 function releaseDetail(r) {
   const released = r.status === 'Released',
@@ -3183,16 +3769,49 @@ function releaseDetail(r) {
   const categories = ['New Feature', 'Bug Fix', 'Improvement', 'UI/UX', 'Investigation'];
   const carried = JSON.parse(r.deferred_task_ids_json || '[]').length,
     next = releaseList.find((x) => x.id === r.rollover_release_id);
-  return `<div class="version-detail-heading"><h3 class="card-title">${released ? 'Release details' : editable ? 'Edit release plan' : 'Plan details'}</h3><span class="muted-note">${ui(released ? 'Historical snapshot' : 'Estimates may change')}</span></div><div class="release-breakdown">${categories
-    .map((c) => {
-      const ts = items.filter((t) => t.type === c);
-      return ts.length
-        ? `<h4>${e(c)}</h4><ul>${ts.map((t) => `<li><button type="button" class="version-task-link" data-open="${e(t.id)}">${e(t.title)}</button>${badge(t.development_status)}</li>`).join('')}</ul>`
-        : '';
-    })
-    .join(
-      '',
-    )}</div>${released && carried ? `<p class="release-carry-note">${ui('{count} unfinished tasks moved to {version}.', { count: carried, version: next?.version || 'the next plan' })}</p>` : ''}${r.auto_candidates ? `<p class="muted-note">${ui('Automatically includes tasks that passed current Stage QA by {end}, plus Production deliveries from {start} through {end}. Tasks reserved for future plans stay in those plans. Uncheck and save to exclude.', { start: dateFmt(r.auto_start), end: dateFmt(r.auto_end) })}</p>` : ''}<div class="field"><label for="release-notes">Release notes</label><textarea autocomplete="off" id="release-notes" ${editable ? '' : 'disabled'}>${e(r.notes)}</textarea></div>${editable ? `<div class="field"><label for="release-version">Version name *</label><input autocomplete="off" id="release-version" maxlength="60" value="${e(r.version)}" placeholder="${e(tr('e.g. v1.2.0'))}" data-ui-placeholder="e.g. v1.2.0"></div><div class="version-plan-fields"><div class="field"><label for="release-planned">Planned date</label><input autocomplete="off" id="release-planned" type="date" value="${e(r.planned_date)}"></div><div class="field"><label for="release-actual">Actual release date</label><input autocomplete="off" id="release-actual" type="date" data-suggested="true" class="suggested-value" value="${todayDate()}" aria-describedby="release-date-help"><p class="muted-note" id="release-date-help">${ui('Defaults to today. Check the date before confirming the release.')}</p></div></div><h3 class="release-category">Include Engineering Board tasks</h3>${releaseTaskPicker(r)}<p class="muted-note">${ui('Select both delivered and planned work. Confirming a release includes only On Production or Closed tasks and carries unfinished tasks to the next plan.')}</p><div class="version-confirm-row"><span class="muted-note" id="release-ready-note" role="status"></span><div class="form-actions"><button type="button" class="btn" id="release-save">Save plan</button><button type="button" class="btn primary" id="release-publish" disabled>Confirm actual release</button></div></div>` : ''}`;
+  return [
+    `<div class="version-detail-heading"><h3 class="card-title">${released ? 'Release details' : editable ? 'Edit release plan' : 'Plan details'}`,
+    `</h3><span class="muted-note">${ui(released ? 'Historical snapshot' : 'Estimates may change')}</span></div><div class="release-breakdown">${categories
+      .map((c) => {
+        const ts = items.filter((t) => t.type === c);
+        return ts.length
+          ? `<h4>${e(c)}</h4><ul>${ts.map((t) => `<li><button type="button" class="version-task-link" data-open="${e(t.id)}">${e(t.title)}</button>${badge(t.development_status)}</li>`).join('')}</ul>`
+          : '';
+      })
+      .join('')}`,
+    [
+      `</div>${released && carried ? `<p class="release-carry-note">${ui('{count} unfinished tasks moved to {version}.', { count: carried, version: next?.version || 'the next plan' })}</p>` : ''}`,
+      `${
+        r.auto_candidates
+          ? [
+              `<p class="muted-note">${ui('Automatically includes tasks that passed current Stage QA by {end}, plus Production deliveries from {start} through {end}. Tasks reserved for future plans stay in those plans. Uncheck and save to exclude.', { start: dateFmt(r.auto_start), end: dateFmt(r.auto_end) })}`,
+              `</p>`,
+            ].join('')
+          : ''
+      }`,
+    ].join(''),
+    `<div class="field"><label for="release-notes">Release notes</label><textarea autocomplete="off" id="release-notes" ${editable ? '' : 'disabled'}>${e(r.notes)}`,
+    `</textarea></div>${
+      editable
+        ? [
+            [
+              `<div class="field"><label for="release-version">Version name *</label><input autocomplete="off" id="release-version" maxlength="60" value="`,
+              `${e(r.version)}" placeholder="${e(tr('e.g. v1.2.0'))}" data-ui-placeholder="e.g. v1.2.0">`,
+            ].join(''),
+            `</div><div class="version-plan-fields"><div class="field"><label for="release-planned">Planned date</label><input autocomplete="off" id="release-planned" type="date" value="${e(r.planned_date)}">`,
+            `</div><div class="field"><label for="release-actual">Actual release date</label><input autocomplete="off" id="release-actual" type="date" data-suggested="true" class="suggested-value" value="${todayDate()}" `,
+            `aria-describedby="release-date-help"><p class="muted-note" id="release-date-help">${ui('Defaults to today. Check the date before confirming the release.')}`,
+            [
+              `</p></div></div><h3 class="release-category">Include Engineering Board tasks</h3>${releaseTaskPicker(r)}`,
+              `<p class="muted-note">${ui('Select both delivered and planned work. Confirming a release includes only On Production or Closed tasks and carries unfinished tasks to the next plan.')}`,
+            ].join(''),
+            `</p><div class="version-confirm-row"><span class="muted-note" id="release-ready-note" role="status"></span><div class="form-actions">`,
+            `<button type="button" class="btn" id="release-save">Save plan</button><button type="button" class="btn primary" id="release-publish" disabled>Confirm actual release`,
+            `</button></div></div>`,
+          ].join('')
+        : ''
+    }`,
+  ].join('');
 }
 async function submitRelease(body, rid) {
   const result = await api('/releases/' + rid, { method: 'PATCH', body: JSON.stringify(body) });
@@ -3255,8 +3874,21 @@ async function saveRelease(publish) {
     return;
   }
   $('#modal-content').classList.remove('image-preview', 'task-create-modal');
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>Confirm actual release?</h2><button class="close" data-close="modal">×</button></div><p class="muted-note">${e(body.version)} · ${e(dateFmt(body.released_date))}</p><div class="release-confirm-group"><h3>In this release</h3><ul>${ready.map((t) => `<li>${e(t.title)}</li>`).join('')}</ul></div>${pending.length ? `<div class="release-confirm-group"><h3>Move to next plan</h3><ul>${pending.map((t) => `<li>${e(t.title)} <span class="muted-note">· ${e(t.development_status)}</span></li>`).join('')}</ul><p class="muted-note">${ui('These tasks remain unfinished and move to the next version plan. A next Wednesday plan is created if needed.')}</p></div>` : ''}<p class="muted-note">${ui('Recording a release updates this tracker; it does not deploy the engineering code. Released records are locked.')}</p><p id="release-confirm-error" role="alert"></p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="confirm-release">Confirm release</button></div>`;
+  $('#modal-content').innerHTML = [
+    `<div class="modal-head"><h2>Confirm actual release?</h2><button class="close" data-close="modal">×</button></div><p class="muted-note">${e(body.version)} · ${e(dateFmt(body.released_date))}`,
+    `</p><div class="release-confirm-group"><h3>In this release</h3><ul>${ready.map((t) => `<li>${e(t.title)}</li>`).join('')}</ul></div>${
+      pending.length
+        ? [
+            `<div class="release-confirm-group"><h3>Move to next plan</h3><ul>${pending.map((t) => `<li>${e(t.title)} <span class="muted-note">· ${e(t.development_status)}</span></li>`).join('')}`,
+            `</ul><p class="muted-note">${ui('These tasks remain unfinished and move to the next version plan. A next Wednesday plan is created if needed.')}`,
+            `</p></div>`,
+          ].join('')
+        : ''
+    }`,
+    `<p class="muted-note">${ui('Recording a release updates this tracker; it does not deploy the engineering code. Released records are locked.')}`,
+    `</p><p id="release-confirm-error" role="alert"></p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button>`,
+    `<button class="btn primary" id="confirm-release">Confirm release</button></div>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#confirm-release').onclick = async () => {
     const button = $('#confirm-release');
@@ -3341,9 +3973,11 @@ async function loadManagerOverview() {
     })),
   ].sort((a, b) => b.time.localeCompare(a.time));
   const personRows = events
-    .map(
-      (a) =>
-        `<tr><td>${e(who(a.person))}</td><td>${a.id ? `<div class="title-cell" data-open="${e(a.id)}">${e(a.title)}</div>` : e(a.title)}</td><td>${a.id ? e(a.status || '—') : '—'}</td><td class="work-notes">${e(a.notes || '—')}</td></tr>`,
+    .map((a) =>
+      [
+        `<tr><td>${e(who(a.person))}</td><td>${a.id ? `<div class="title-cell" data-open="${e(a.id)}">${e(a.title)}</div>` : e(a.title)}</td>`,
+        `<td>${a.id ? e(a.status || '—') : '—'}</td><td class="work-notes">${e(a.notes || '—')}</td></tr>`,
+      ].join(''),
     )
     .join('');
   const upcoming = versions.releases
@@ -3354,21 +3988,39 @@ async function loadManagerOverview() {
     .map((r, i) => {
       const ids = JSON.parse(r.task_ids_json),
         tasks = state.tasks.filter((t) => ids.includes(t.id));
-      return `<div class="list-row"><div class="list-main"><div class="eyebrow">${i === 0 ? 'NEXT RELEASE' : 'FOLLOWING RELEASE'}</div><div class="list-title">${e(r.version)} · ${e(dateFmt(r.planned_date))}</div><div class="list-meta">${tasks.filter((t) => t.type === 'New Feature').length} new features · ${tasks.filter((t) => t.type === 'Bug Fix').length} bug fixes · ${tasks.length} planned changes</div><div class="muted-note">${tasks.map((t) => e(t.title)).join(' · ') || 'No tasks selected yet'}</div></div></div>`;
+      return [
+        `<div class="list-row"><div class="list-main"><div class="eyebrow">${i === 0 ? 'NEXT RELEASE' : 'FOLLOWING RELEASE'}</div><div class="list-title">${e(r.version)} · ${e(dateFmt(r.planned_date))}`,
+        `</div><div class="list-meta">${tasks.filter((t) => t.type === 'New Feature').length} new features · ${tasks.filter((t) => t.type === 'Bug Fix').length} bug fixes · ${tasks.length} planned changes`,
+        `</div><div class="muted-note">${tasks.map((t) => e(t.title)).join(' · ') || 'No tasks selected yet'}</div></div></div>`,
+      ].join('');
     })
     .join('');
   const changes = engineering.activities
-    .map(
-      (a) =>
-        `<tr><td>${e(who(a.actor_email))}</td><td><div class="title-cell" data-open="${e(a.task_id)}">${e(a.task_title)}</div></td><td>${badge(a.action_type)}</td><td>${e(a.result || '—')}<div class="muted-note">${e(a.notes || '')}</div>${attachmentTiles(
+    .map((a) =>
+      [
+        `<tr><td>${e(who(a.actor_email))}</td><td><div class="title-cell" data-open="${e(a.task_id)}">${e(a.task_title)}</div></td><td>${badge(a.action_type)}`,
+        `</td><td>${e(a.result || '—')}<div class="muted-note">${e(a.notes || '')}</div>${attachmentTiles(
           (engineering.attachments || []).filter(
             (f) => f.activity_id === a.id || (a.comment_id && f.comment_id === a.comment_id),
           ),
           false,
-        )}</td></tr>`,
+        )}`,
+        `</td></tr>`,
+      ].join(''),
     )
     .join('');
-  root.innerHTML = `<section class="card"><div class="card-head"><div><h2 class="card-title">Everyone’s daily work</h2><p class="card-desc">${e(dateFmt(day))} ${ui('· Shared task activity and personal daily entries')}</p></div><button class="btn tiny" data-view="daily">View Daily Work ↗</button></div><div class="table-wrap"><table class="table"><thead><tr><th>PERSON</th><th>ACTIVITY</th><th>RESULT</th><th>DETAILS</th></tr></thead><tbody>${personRows || `<tr><td colspan="4">${ui('No activity logged for this date.')}</td></tr>`}</tbody></table></div></section><div class="section-gap"></div><section class="card"><div class="card-head"><div><h2 class="card-title">Engineering Board progress</h2><p class="card-desc">${e(dateFmt(day))}</p></div><div><button class="btn tiny" data-view="board">Board ↗</button></div></div><div class="table-wrap"><table class="table"><thead><tr><th>PERSON</th><th>TASK</th><th>ACTIVITY</th><th>UPDATE</th></tr></thead><tbody>${changes || `<tr><td colspan="4">${ui('No Engineering Board updates for this date.')}</td></tr>`}</tbody></table></div></section><div class="section-gap"></div><section class="card"><div class="card-head"><div><h2 class="card-title">Upcoming versions</h2><p class="card-desc">${ui('Expected features and fixes')}</p></div><button class="btn tiny" data-view="releases">Version Control ↗</button></div><div class="card-body">${releaseRows || empty('No upcoming versions', 'Engineering can create the next release plan.')}</div></section>`;
+  root.innerHTML = [
+    `<section class="card"><div class="card-head"><div><h2 class="card-title">Everyone’s daily work</h2><p class="card-desc">${e(dateFmt(day))} ${ui('· Shared task activity and personal daily entries')}`,
+    `</p></div><button class="btn tiny" data-view="daily">View Daily Work ↗</button></div><div class="table-wrap"><table class="table"><thead>`,
+    `<tr><th>PERSON</th><th>ACTIVITY</th><th>RESULT</th><th>DETAILS</th></tr></thead><tbody>${personRows || `<tr><td colspan="4">${ui('No activity logged for this date.')}</td></tr>`}`,
+    `</tbody></table></div></section><div class="section-gap"></div><section class="card"><div class="card-head"><div><h2 class="card-title">Engineering Board progress`,
+    `</h2><p class="card-desc">${e(dateFmt(day))}</p></div><div><button class="btn tiny" data-view="board">Board ↗</button></div></div><div class="table-wrap">`,
+    `<table class="table"><thead><tr><th>PERSON</th><th>TASK</th><th>ACTIVITY</th><th>UPDATE</th></tr></thead><tbody>${changes || `<tr><td colspan="4">${ui('No Engineering Board updates for this date.')}</td></tr>`}`,
+    `</tbody></table></div></section><div class="section-gap"></div><section class="card"><div class="card-head"><div><h2 class="card-title">Upcoming versions`,
+    `</h2><p class="card-desc">${ui('Expected features and fixes')}</p></div><button class="btn tiny" data-view="releases">Version Control ↗`,
+    `</button></div><div class="card-body">${releaseRows || empty('No upcoming versions', 'Engineering can create the next release plan.')}`,
+    `</div></section>`,
+  ].join('');
 }
 function parentTaskSelect(t, writable = true) {
   return `<div class="field"><label>Parent task (optional)</label><select class="task-field" data-key="parent_task_id" ${writable && (canQA() || canDev()) ? '' : 'disabled'}><option value="">No parent task</option>${state.tasks
@@ -3406,7 +4058,19 @@ async function loadBoardActivity() {
     return;
   const root = $('#board-daily-results');
   if (!root) return;
-  root.innerHTML = `<div class="table-wrap"><table class="table"><thead><tr><th>PERSON</th><th>TASK</th><th>ACTIVITY</th><th>DETAILS</th></tr></thead><tbody>${d.activities.map((a) => `<tr><td>${e(who(a.actor_email))}</td><td><div class="title-cell" data-open="${e(a.task_id)}">${e(a.task_title)}</div></td><td>${badge(a.action_type)}</td><td class="work-notes">${e(a.result)}<div class="muted-note">${e(a.notes || '')}</div></td></tr>`).join('') || `<tr><td colspan="4">${ui('No board activity for this date.')}</td></tr>`}</tbody></table></div>`;
+  root.innerHTML = [
+    `<div class="table-wrap"><table class="table"><thead><tr><th>PERSON</th><th>TASK</th><th>ACTIVITY</th><th>DETAILS</th></tr></thead><tbody>${
+      d.activities
+        .map((a) =>
+          [
+            `<tr><td>${e(who(a.actor_email))}</td><td><div class="title-cell" data-open="${e(a.task_id)}">${e(a.task_title)}</div></td><td>${badge(a.action_type)}`,
+            `</td><td class="work-notes">${e(a.result)}<div class="muted-note">${e(a.notes || '')}</div></td></tr>`,
+          ].join(''),
+        )
+        .join('') || `<tr><td colspan="4">${ui('No board activity for this date.')}</td></tr>`
+    }`,
+    `</tbody></table></div>`,
+  ].join('');
 }
 function renderPrivateWork() {
   const root = $('#private-work-results');
@@ -3417,7 +4081,21 @@ function renderPrivateWork() {
   }
   root.innerHTML =
     renderPrivateProjects() +
-    `<section class="card board-card private-work-board"><div class="card-head"><div><h2 class="card-title">Daily Work Board</h2><p class="card-desc">${ui('Your ongoing tasks. Open a row to continue work or log an activity.')}</p></div></div><div class="filters private-board-filters"><input autocomplete="off" type="search" class="search" id="private-work-search" aria-label="Search private tasks or project names" placeholder="${e(tr('Search tasks or project names'))}" data-ui-placeholder="Search tasks or project names" value="${e(state.privateSearch)}"><select class="select" id="private-work-status" aria-label="Private work status">${option(['Active work', 'In Progress', 'Waiting', 'Completed', 'All work', 'Archived work'], state.privateStatus)}</select></div><div class="workspace-private-list" id="private-board-rows"></div></section>`;
+    [
+      [
+        `<section class="card board-card private-work-board"><div class="card-head"><div><h2 class="card-title">Daily Work Board`,
+        `</h2><p class="card-desc">${ui('Your ongoing tasks. Open a row to continue work or log an activity.')}`,
+      ].join(''),
+      [
+        `</p></div></div><div class="filters private-board-filters"><input autocomplete="off" type="search" class="search" id="private-work-search" aria-label="Search private tasks or project names" `,
+        `placeholder="${e(tr('Search tasks or project names'))}" `,
+      ].join(''),
+      [
+        `data-ui-placeholder="Search tasks or project names" value="${e(state.privateSearch)}"><select class="select" id="private-work-status" aria-label="Private work status">`,
+        `${option(['Active work', 'In Progress', 'Waiting', 'Completed', 'All work', 'Archived work'], state.privateStatus)}`,
+      ].join(''),
+      `</select></div><div class="workspace-private-list" id="private-board-rows"></div></section>`,
+    ].join('');
   renderPrivateBoardRows();
   labelMobileTables(root);
 }
@@ -3439,15 +4117,31 @@ function renderPrivateProjects() {
     : '';
   if (!projects.length)
     return addProject ? `<div class="workspace-project-create">${addProject}</div>` : '';
-  return `<section class="private-projects workspace-projects"><div class="workspace-section-head"><h2 class="card-title">Projects <span class="muted-note">${projects.length}</span></h2>${addProject}</div><div class="workspace-project-grid">${projects
-    .map((i) => {
-      const children = state.privateItems.filter(
-          (t) => t.parent_id === i.id && t.kind === 'Task' && !t.archived,
-        ),
-        done = children.filter((t) => t.status === 'Completed').length;
-      return `<div class="task-row workspace-project-card" data-row-private="${e(i.id)}" tabindex="0" role="button" aria-label="Open project ${e(i.title)}"><strong class="workspace-task-title">${e(i.title)}</strong><div class="workspace-task-footer">${badge(i.status)}<span class="muted-note">${ui('{done} of {total} tasks complete', { done, total: children.length })}</span></div>${children.length ? `<div class="workspace-project-progress" role="progressbar" aria-label="Completed tasks" aria-valuemin="0" aria-valuemax="${children.length}" aria-valuenow="${done}"><span style="width:${(done / children.length) * 100}%"></span></div>` : ''}<span class="muted-note">Updated ${e(timeFmt(i.updated_at))}</span></div>`;
-    })
-    .join('')}</div></section>`;
+  return [
+    `<section class="private-projects workspace-projects"><div class="workspace-section-head"><h2 class="card-title">Projects <span class="muted-note">${projects.length}`,
+    `</span></h2>${addProject}</div><div class="workspace-project-grid">${projects
+      .map((i) => {
+        const children = state.privateItems.filter(
+            (t) => t.parent_id === i.id && t.kind === 'Task' && !t.archived,
+          ),
+          done = children.filter((t) => t.status === 'Completed').length;
+        return [
+          `<div class="task-row workspace-project-card" data-row-private="${e(i.id)}" tabindex="0" role="button" aria-label="Open project ${e(i.title)}">`,
+          `<strong class="workspace-task-title">${e(i.title)}</strong><div class="workspace-task-footer">${badge(i.status)}<span class="muted-note">${ui('{done} of {total} tasks complete', { done, total: children.length })}`,
+          `</span></div>${
+            children.length
+              ? [
+                  `<div class="workspace-project-progress" role="progressbar" aria-label="Completed tasks" aria-valuemin="0" aria-valuemax="${children.length}" aria-valuenow="${done}">`,
+                  `<span style="width:${(done / children.length) * 100}%"></span></div>`,
+                ].join('')
+              : ''
+          }`,
+          `<span class="muted-note">Updated ${e(timeFmt(i.updated_at))}</span></div>`,
+        ].join('');
+      })
+      .join('')}`,
+    `</div></section>`,
+  ].join('');
 }
 function renderPrivateBoardRows() {
   const root = $('#private-board-rows');
@@ -3483,9 +4177,15 @@ function renderPrivateBoardRows() {
     );
   root.innerHTML =
     items
-      .map(
-        (i) =>
-          `<div class="task-row workspace-private-task ${state.privateDetail === i.id ? 'selected' : ''}" data-row-private="${e(i.id)}" tabindex="0" role="button" aria-label="Open ${e(i.title)}"><div class="workspace-private-copy"><strong>${e(i.title)}</strong><span class="muted-note">${e(parent(i)?.title || 'Standalone task')} · ${i.status === 'Completed' && i.completed_date ? 'Completed ' + e(dateFmt(i.completed_date)) : 'Updated ' + e(timeFmt(i.updated_at))}</span><div class="workspace-private-reminders">${inactivityReminder(i)}${recurrenceBadge(i)}</div></div>${badge(i.status)}</div>`,
+      .map((i) =>
+        [
+          `<div class="task-row workspace-private-task ${state.privateDetail === i.id ? 'selected' : ''}" data-row-private="${e(i.id)}" tabindex="0" role="button" aria-label="Open ${e(i.title)}">`,
+          [
+            `<div class="workspace-private-copy"><strong>${e(i.title)}</strong><span class="muted-note">${e(parent(i)?.title || 'Standalone task')} · `,
+            `${i.status === 'Completed' && i.completed_date ? 'Completed ' + e(dateFmt(i.completed_date)) : 'Updated ' + e(timeFmt(i.updated_at))}`,
+          ].join(''),
+          `</span><div class="workspace-private-reminders">${inactivityReminder(i)}${recurrenceBadge(i)}</div></div>${badge(i.status)}</div>`,
+        ].join(''),
       )
       .join('') ||
     empty(
@@ -3496,17 +4196,32 @@ function renderPrivateBoardRows() {
     );
 }
 function dailyActivitySection(rows, title, collapsed = false, showResults = true) {
-  const table = `<div class="table-wrap"><table class="table"><thead><tr><th>PERSON</th><th>WORK / TASK</th>${showResults ? '<th>RESULT</th>' : ''}<th>DETAILS</th></tr></thead><tbody>${
-    rows
-      .map((r) => {
-        const linkedTitle = r.item
-          ? state.privateItems.find((i) => i.id === r.item)?.title || 'Private project / task'
-          : '';
-        return `<tr class="task-row daily-activity-row" ${r.id ? `data-row-office="${e(r.id)}"` : `data-row-task="${e(r.task_id)}"`} tabindex="0" role="button" aria-label="${r.id && canWrite() && r.person === state.user.email ? 'Edit' : 'View'} ${e(r.title)}"><td>${e(who(r.person))}</td><td>${e(r.title)}${linkedTitle && !isBoss() && linkedTitle !== r.title ? `<div class="muted-note">${e(linkedTitle)}</div>` : ''}${isBoss() ? `<div class="muted-note">${r.id ? 'Daily Work' : 'Engineering'}</div>` : ''}</td>${showResults ? `<td>${r.task_id ? badge(r.result || r.kind) : '—'}</td>` : ''}<td class="work-notes">${e(r.notes || '—')}${attachmentTiles(r.attachments || [], canWrite() && r.person === state.user.email)}</td></tr>`;
-      })
-      .join('') ||
-    `<tr><td colspan="${showResults ? 4 : 3}">${ui('No activity logged for this date.')}</td></tr>`
-  }</tbody></table></div>`;
+  const table = [
+    `<div class="table-wrap"><table class="table"><thead><tr><th>PERSON</th><th>WORK / TASK</th>${showResults ? '<th>RESULT</th>' : ''}<th>DETAILS`,
+    `</th></tr></thead><tbody>${
+      rows
+        .map((r) => {
+          const linkedTitle = r.item
+            ? state.privateItems.find((i) => i.id === r.item)?.title || 'Private project / task'
+            : '';
+          return [
+            [
+              `<tr class="task-row daily-activity-row" ${r.id ? `data-row-office="${e(r.id)}"` : `data-row-task="${e(r.task_id)}"`} tabindex="0" role="button" aria-label="`,
+              `${r.id && canWrite() && r.person === state.user.email ? 'Edit' : 'View'} ${e(r.title)}">`,
+            ].join(''),
+            [
+              `<td>${e(who(r.person))}</td><td>${e(r.title)}${linkedTitle && !isBoss() && linkedTitle !== r.title ? `<div class="muted-note">${e(linkedTitle)}</div>` : ''}`,
+              `${isBoss() ? `<div class="muted-note">${r.id ? 'Daily Work' : 'Engineering'}</div>` : ''}`,
+            ].join(''),
+            `</td>${showResults ? `<td>${r.task_id ? badge(r.result || r.kind) : '—'}</td>` : ''}<td class="work-notes">${e(r.notes || '—')}${attachmentTiles(r.attachments || [], canWrite() && r.person === state.user.email)}`,
+            `</td></tr>`,
+          ].join('');
+        })
+        .join('') ||
+      `<tr><td colspan="${showResults ? 4 : 3}">${ui('No activity logged for this date.')}</td></tr>`
+    }`,
+    `</tbody></table></div>`,
+  ].join('');
   return collapsed
     ? `<details class="card daily-shared-activity"><summary>${e(title)}</summary>${table}</details>`
     : `<section class="card"><div class="card-head"><h2 class="card-title">${e(title)}</h2></div>${table}</section>`;
@@ -3563,8 +4278,10 @@ async function editOffice(oid) {
     o.owner_email !== state.user.email ||
     state.privateItems.find((i) => i.id === o.work_item_id)?.archived
   ) {
-    $('#modal-content').innerHTML =
-      `<div class="modal-head"><h2>${e(o.title)}</h2><button class="close" data-close="modal">×</button></div><p class="muted-note">${e(who(o.owner_email))} · ${e(dateFmt(o.work_date))}</p><p class="work-notes">${e(o.details || '—')}</p>${attachmentTiles(d.attachments || [], false)}`;
+    $('#modal-content').innerHTML = [
+      `<div class="modal-head"><h2>${e(o.title)}</h2><button class="close" data-close="modal">×</button></div><p class="muted-note">${e(who(o.owner_email))} · ${e(dateFmt(o.work_date))}`,
+      `</p><p class="work-notes">${e(o.details || '—')}</p>${attachmentTiles(d.attachments || [], false)}`,
+    ].join('');
     $('#modal-shade').classList.remove('hidden');
     return;
   }
@@ -3590,14 +4307,26 @@ async function editOffice(oid) {
     $('#office-complete-cycle').checked = !!o.complete_occurrence;
   $('#modal-content').insertAdjacentHTML(
     'beforeend',
-    `<section id="private-activity-editor"><h3 class="card-title">Existing attachments</h3>${attachmentTiles(d.attachments || [], true)}</section><div class="task-manage"><button type="button" class="account-link danger-link" data-office-delete="${e(oid)}">Delete activity</button></div>`,
+    [
+      `<section id="private-activity-editor"><h3 class="card-title">Existing attachments</h3>${attachmentTiles(d.attachments || [], true)}`,
+      `</section><div class="task-manage"><button type="button" class="account-link danger-link" data-office-delete="${e(oid)}">Delete activity`,
+      `</button></div>`,
+    ].join(''),
   );
 }
 function privateModal(iid = '') {
   const i = state.privateItems.find((i) => i.id === iid),
     kind = i?.kind || 'Project';
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>${i ? 'Edit private ' + kind.toLowerCase() : 'Add project'}</h2><button class="close" data-close="modal">×</button></div><form autocomplete="off" id="private-form"><input autocomplete="off" id="private-kind" type="hidden" value="${e(kind)}"><div class="field"><label>Title *</label><input autocomplete="off" id="private-title" required maxlength="180" value="${e(i?.title)}" placeholder="${kind === 'Project' ? tr('e.g. Prepare the monthly report') : tr('e.g. Update the price list')}" data-ui-placeholder="${kind === 'Project' ? 'e.g. Prepare the monthly report' : 'e.g. Update the price list'}"></div><div class="field"><label>Description</label><textarea autocomplete="off" id="private-description">${e(i?.description)}</textarea></div>${kind === 'Task' ? recurrenceFields('private', i || {}) : ''}<div class="form-actions"><button class="btn primary" type="submit">${i ? 'Save changes' : 'Add project'}</button></div>${
+  $('#modal-content').innerHTML = [
+    `<div class="modal-head"><h2>${i ? 'Edit private ' + kind.toLowerCase() : 'Add project'}</h2><button class="close" data-close="modal">×`,
+    `</button></div><form autocomplete="off" id="private-form"><input autocomplete="off" id="private-kind" type="hidden" value="${e(kind)}">`,
+    [
+      `<div class="field"><label>Title *</label><input autocomplete="off" id="private-title" required maxlength="180" value="`,
+      `${e(i?.title)}" placeholder="${kind === 'Project' ? tr('e.g. Prepare the monthly report') : tr('e.g. Update the price list')}" `,
+    ].join(''),
+    `data-ui-placeholder="${kind === 'Project' ? 'e.g. Prepare the monthly report' : 'e.g. Update the price list'}"></div><div class="field">`,
+    `<label>Description</label><textarea autocomplete="off" id="private-description">${e(i?.description)}</textarea></div>${kind === 'Task' ? recurrenceFields('private', i || {}) : ''}`,
+    `<div class="form-actions"><button class="btn primary" type="submit">${i ? 'Save changes' : 'Add project'}</button></div>${
       i && kind === 'Project'
         ? `<section id="private-project-edit-evidence"><h3 class="card-title">Project attachments</h3>${attachmentTiles(
             (state.privateDetailData?.item.id === i.id
@@ -3607,7 +4336,18 @@ function privateModal(iid = '') {
             true,
           )}${evidencePicker('private-task-files', 'private-direct', 'Add project attachments')}</section>`
         : ''
-    }${i ? `<div class="private-edit-actions"><p class="muted-note">${ui('Archive keeps work and history. Delete removes this {kind} from your workspace.', { kind: kind.toLowerCase() })}</p><div class="task-action-options"><button class="btn" type="button" data-private-archive="${e(i.id)}">Archive ${e(kind.toLowerCase())}</button><button class="btn danger-link" type="button" data-private-delete="${e(i.id)}">Delete ${e(kind.toLowerCase())}</button></div></div>` : ''}</form>`;
+    }${
+      i
+        ? [
+            `<div class="private-edit-actions"><p class="muted-note">${ui('Archive keeps work and history. Delete removes this {kind} from your workspace.', { kind: kind.toLowerCase() })}`,
+            `</p><div class="task-action-options"><button class="btn" type="button" data-private-archive="${e(i.id)}">Archive ${e(kind.toLowerCase())}`,
+            `</button><button class="btn danger-link" type="button" data-private-delete="${e(i.id)}">Delete ${e(kind.toLowerCase())}</button></div>`,
+            `</div>`,
+          ].join('')
+        : ''
+    }`,
+    `</form>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#private-form').onsubmit = (ev) => {
     ev.preventDefault();
@@ -3629,8 +4369,11 @@ function privateModal(iid = '') {
   };
 }
 function confirmWorkDelete(path, title) {
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>Delete ${e(title)}?</h2><button class="close" data-close="modal">×</button></div><p>${ui('This removes it from your workspace. Its change record is retained.')}</p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="confirm-work-delete">Delete</button></div>`;
+  $('#modal-content').innerHTML = [
+    `<div class="modal-head"><h2>Delete ${e(title)}?</h2><button class="close" data-close="modal">×</button></div><p>${ui('This removes it from your workspace. Its change record is retained.')}`,
+    `</p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="confirm-work-delete">Delete`,
+    `</button></div>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#confirm-work-delete').onclick = () =>
     busy(async () => {
@@ -3721,8 +4464,11 @@ function hasDirtyTask() {
   );
 }
 function askDiscardTask(action) {
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>${ui('Discard unsaved changes?')}</h2><button class="close" data-close="modal">×</button></div><p>${ui('Your task changes have not been saved.')}</p><div class="form-actions"><button class="btn" data-close="modal">Keep editing</button><button class="btn primary" id="discard-task">Discard changes</button></div>`;
+  $('#modal-content').innerHTML = [
+    `<div class="modal-head"><h2>${ui('Discard unsaved changes?')}</h2><button class="close" data-close="modal">×</button></div><p>${ui('Your task changes have not been saved.')}`,
+    `</p><div class="form-actions"><button class="btn" data-close="modal">Keep editing</button><button class="btn primary" id="discard-task">Discard changes`,
+    `</button></div>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#discard-task').onclick = () => {
     closeModal();
@@ -3748,8 +4494,12 @@ function removalDialog() {
   const d = state.detailData,
     t = d.task,
     archive = d.removal_mode === 'Archived';
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>${archive ? 'Archive' : 'Delete'} task?</h2><button class="close" data-close="modal">×</button></div><p>${e(t.title)}</p><p>${ui(archive ? 'This task has shared work, child tasks or released-version history. Archiving preserves these records.' : 'This task will be removed from the active board. Tasks with multiple contributors or released-version history will be archived instead.')}</p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="confirm-task-remove">Confirm ${archive ? 'archive' : 'delete'}</button></div>`;
+  $('#modal-content').innerHTML = [
+    `<div class="modal-head"><h2>${archive ? 'Archive' : 'Delete'} task?</h2><button class="close" data-close="modal">×</button></div><p>${e(t.title)}`,
+    `</p><p>${ui(archive ? 'This task has shared work, child tasks or released-version history. Archiving preserves these records.' : 'This task will be removed from the active board. Tasks with multiple contributors or released-version history will be archived instead.')}`,
+    `</p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="confirm-task-remove">Confirm ${archive ? 'archive' : 'delete'}`,
+    `</button></div>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#confirm-task-remove').onclick = () =>
     busy(async () => {
@@ -3776,8 +4526,11 @@ document.addEventListener('click', (ev) => {
   const preview = ev.target.closest('[data-preview-image]');
   if (preview) {
     $('#modal-content').classList.add('image-preview');
-    $('#modal-content').innerHTML =
-      `<div class="modal-head"><h2>${e(preview.dataset.filename)}</h2><button class="close" data-close="modal">×</button></div><img class="full-screenshot" src="/api/attachments/${e(preview.dataset.previewImage)}?preview=1" alt="${e(preview.dataset.filename)}"><button class="btn" data-download="${e(preview.dataset.previewImage)}" data-filename="${e(preview.dataset.filename)}">Download</button>`;
+    $('#modal-content').innerHTML = [
+      `<div class="modal-head"><h2>${e(preview.dataset.filename)}</h2><button class="close" data-close="modal">×</button></div><img class="full-screenshot" src="/api/attachments/${e(preview.dataset.previewImage)}?preview=1" `,
+      `alt="${e(preview.dataset.filename)}"><button class="btn" data-download="${e(preview.dataset.previewImage)}" data-filename="${e(preview.dataset.filename)}">Download`,
+      `</button>`,
+    ].join('');
     $('#modal-shade').classList.remove('hidden');
     return;
   }
@@ -3893,7 +4646,27 @@ let pendingActivityFiles = [],
   pendingTaskField = null;
 function attachmentTiles(files, writable) {
   return files.length
-    ? `<div class="linked-attachments">${files.map((a) => `<div class="attachment-entry">${a.content_type.startsWith('image/') ? `<button class="screenshot-tile" data-preview-image="${e(a.id)}" data-filename="${e(a.filename)}"><img loading="lazy" decoding="async" src="/api/attachments/${e(a.id)}?preview=1" alt="${e(a.filename)}"><span>${e(a.filename)}</span></button>` : `<button class="btn tiny" data-download="${e(a.id)}" data-filename="${e(a.filename)}">${e(a.filename)}</button>`}${writable && (a.owner_email === state.user.email || canManage()) ? `<button class="image-delete" data-delete-attachment="${e(a.id)}" data-filename="${e(a.filename)}">Delete</button>` : ''}</div>`).join('')}</div>`
+    ? [
+        `<div class="linked-attachments">${files
+          .map((a) =>
+            [
+              [
+                `<div class="attachment-entry">${
+                  a.content_type.startsWith('image/')
+                    ? [
+                        `<button class="screenshot-tile" data-preview-image="${e(a.id)}" data-filename="${e(a.filename)}"><img loading="lazy" decoding="async" src="/api/attachments/${e(a.id)}?preview=1" alt="${e(a.filename)}">`,
+                        `<span>${e(a.filename)}</span></button>`,
+                      ].join('')
+                    : `<button class="btn tiny" data-download="${e(a.id)}" data-filename="${e(a.filename)}">${e(a.filename)}</button>`
+                }`,
+                `${writable && (a.owner_email === state.user.email || canManage()) ? `<button class="image-delete" data-delete-attachment="${e(a.id)}" data-filename="${e(a.filename)}">Delete</button>` : ''}`,
+              ].join(''),
+              `</div>`,
+            ].join(''),
+          )
+          .join('')}`,
+        `</div>`,
+      ].join('')
     : '';
 }
 async function refreshTaskDetail({ preserveWorkflow = true } = {}) {
@@ -3992,8 +4765,12 @@ function confirmFieldChange(field) {
       field.closest('.field')?.classList.remove('field-edited');
     },
   };
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>Change ${e(label.toLowerCase())}?</h2><button class="close" data-close="modal">×</button></div><div class="confirm-value"><span class="muted-note">Current</span><p>${e(display(old))}</p><span class="muted-note">New</span><p>${e(display(value))}</p></div><p id="field-change-error" role="alert"></p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="confirm-field-change">Confirm & save</button></div>`;
+  $('#modal-content').innerHTML = [
+    `<div class="modal-head"><h2>Change ${e(label.toLowerCase())}?</h2><button class="close" data-close="modal">×</button></div><div class="confirm-value">`,
+    `<span class="muted-note">Current</span><p>${e(display(old))}</p><span class="muted-note">New</span><p>${e(display(value))}</p></div>`,
+    `<p id="field-change-error" role="alert"></p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="confirm-field-change">Confirm & save`,
+    `</button></div>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#confirm-field-change').onclick = async () => {
     const button = $('#confirm-field-change');
@@ -4154,8 +4931,11 @@ document.addEventListener('click', (ev) => {
       });
     return;
   }
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>Delete image / file?</h2><button class="close" data-close="modal">×</button></div><p>${e(b.dataset.filename)}</p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="confirm-attachment-delete">Delete</button></div>`;
+  $('#modal-content').innerHTML = [
+    `<div class="modal-head"><h2>Delete image / file?</h2><button class="close" data-close="modal">×</button></div><p>${e(b.dataset.filename)}`,
+    `</p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="confirm-attachment-delete">Delete`,
+    `</button></div>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#confirm-attachment-delete').onclick = () =>
     busy(async () => {
@@ -4264,8 +5044,11 @@ function confirmWorkflow(action) {
                   : ui('Engineering stage: {stage}. QA continues to wait for Stage confirmation.', {
                       stage: body.development_status,
                     });
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>${e(labels[action])}?</h2><button class="close" data-close="modal">×</button></div><p>${effect}</p>${action === 'qa' ? `<p>${badge(body.qa_status)}</p>` : ''}<p id="workflow-error" role="alert"></p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="confirm-workflow">Confirm</button></div>`;
+  $('#modal-content').innerHTML = [
+    `<div class="modal-head"><h2>${e(labels[action])}?</h2><button class="close" data-close="modal">×</button></div><p>${effect}</p>${action === 'qa' ? `<p>${badge(body.qa_status)}</p>` : ''}`,
+    `<p id="workflow-error" role="alert"></p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="confirm-workflow">Confirm`,
+    `</button></div>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#confirm-workflow').onclick = async () => {
     const button = $('#confirm-workflow');
@@ -4332,7 +5115,16 @@ document.addEventListener('click', (ev) => {
 const todayDate = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
 function recurrenceFields(prefix, item = {}) {
   const rule = item.recurrence_rule || 'none';
-  return `<section class="repeat-settings"><h3 class="card-title">Repeat / reminders</h3><div class="form-row"><div class="field"><label>Repeat</label><select id="${prefix}-recurrence" data-recurrence-prefix="${prefix}">${['none', 'daily', 'weekly', 'monthly'].map((r) => `<option value="${r}" ${r === rule ? 'selected' : ''}>${{ none: 'Does not repeat', daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' }[r]}</option>`).join('')}</select></div><div class="field" id="${prefix}-due-field" ${rule === 'none' ? 'hidden' : ''}><label>${item.next_due_date ? 'Next due date' : 'First due date'}</label><input autocomplete="off" id="${prefix}-due" type="date" value="${e(item.next_due_date || state.day)}"></div></div><p class="muted-note">${ui('Due reminders continue until you complete the occurrence. Only actual activities count as daily work.')}</p></section>`;
+  return [
+    `<section class="repeat-settings"><h3 class="card-title">Repeat / reminders</h3><div class="form-row"><div class="field"><label>Repeat`,
+    `</label><select id="${prefix}-recurrence" data-recurrence-prefix="${prefix}">${['none', 'daily', 'weekly', 'monthly'].map((r) => `<option value="${r}" ${r === rule ? 'selected' : ''}>${{ none: 'Does not repeat', daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' }[r]}</option>`).join('')}`,
+    `</select></div><div class="field" id="${prefix}-due-field" ${rule === 'none' ? 'hidden' : ''}><label>${item.next_due_date ? 'Next due date' : 'First due date'}`,
+    [
+      `</label><input autocomplete="off" id="${prefix}-due" type="date" value="${e(item.next_due_date || state.day)}">`,
+      `</div></div><p class="muted-note">${ui('Due reminders continue until you complete the occurrence. Only actual activities count as daily work.')}`,
+    ].join(''),
+    `</p></section>`,
+  ].join('');
 }
 function readRecurrence(prefix) {
   const rule = $('#' + prefix + '-recurrence').value;
@@ -4345,10 +5137,24 @@ function recurrenceBadge(i) {
   if (!i.recurrence_rule || i.recurrence_rule === 'none') return '';
   const due = i.next_due_date,
     today = todayDate();
-  return `<span class="recurrence-note">${e({ daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' }[i.recurrence_rule])} · ${i.status !== 'Completed' && due <= today ? badge(due < today ? 'Overdue' : 'Due today') + ' ' : ''}${e(dateFmt(due))}</span>`;
+  return [
+    [
+      `<span class="recurrence-note">${e({ daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' }[i.recurrence_rule])} · `,
+      `${i.status !== 'Completed' && due <= today ? badge(due < today ? 'Overdue' : 'Due today') + ' ' : ''}`,
+      `${e(dateFmt(due))}`,
+    ].join(''),
+    `</span>`,
+  ].join('');
 }
 function completeTaskControl(prefix) {
-  return `<div class="complete-task-control" id="${prefix}-complete-task-control" hidden><label class="completion-choice"><input autocomplete="off" type="checkbox" id="${prefix}-complete-task"><span class="completion-choice-mark" aria-hidden="true">✓</span><span>${ui('Complete task')}</span></label><p class="muted-note" id="${prefix}-complete-task-note">${ui('Check when the whole task is finished. Otherwise, just record your progress.')}</p></div>`;
+  return [
+    `<div class="complete-task-control" id="${prefix}-complete-task-control" hidden><label class="completion-choice"><input autocomplete="off" type="checkbox" id="${prefix}-complete-task">`,
+    [
+      `<span class="completion-choice-mark" aria-hidden="true">✓</span><span>${ui('Complete task')}</span>`,
+      `</label><p class="muted-note" id="${prefix}-complete-task-note">${ui('Check when the whole task is finished. Otherwise, just record your progress.')}`,
+    ].join(''),
+    `</p></div>`,
+  ].join('');
 }
 function syncCompleteTaskControl(prefix, item, status) {
   const control = $('#' + prefix + '-complete-task-control');
@@ -4505,14 +5311,29 @@ async function refreshPrivateDetail() {
 let pendingPrivateActivityFiles = [];
 function privateActivityComposer(i, children = []) {
   const recurring = i.recurrence_rule && i.recurrence_rule !== 'none' && i.status !== 'Completed';
-  return `<section class="private-activity-composer"><h3 class="card-title">Add activity</h3><form autocomplete="off" id="private-activity-form" data-work-id="${e(i.id)}"><p class="muted-note">${ui('Record what you did. This update counts toward the selected day’s work.')}</p>${
-    i.kind === 'Project'
-      ? `<div class="field"><label for="private-activity-item">Activity belongs to</label><select id="private-activity-item"><option value="${e(i.id)}">Project itself</option>${children
-          .filter((t) => !t.archived && t.status !== 'Completed')
-          .map((t) => `<option value="${e(t.id)}">Task · ${e(t.title)}</option>`)
-          .join('')}</select></div>`
-      : `<input autocomplete="off" id="private-activity-item" type="hidden" value="${e(i.id)}">`
-  }<div class="field"><label for="private-activity-details">${ui('What did you do?')}</label><textarea autocomplete="off" id="private-activity-details" placeholder="${e(tr('e.g. Finished the first draft. Waiting for feedback.'))}" data-ui-placeholder="e.g. Finished the first draft. Waiting for feedback." required></textarea></div><div class="form-row"><div class="field"><label for="private-activity-date">Work date</label><input autocomplete="off" id="private-activity-date" data-suggested="true" class="suggested-value" type="date" value="${state.day}" required></div><input autocomplete="off" type="hidden" id="private-activity-status" value=""></div><div id="private-activity-cycle" ${recurring ? '' : 'hidden'}><label class="completion-choice"><input autocomplete="off" id="private-activity-complete-cycle" type="checkbox"><span class="completion-choice-mark" aria-hidden="true">✓</span><span>${ui('Complete this occurrence')}</span></label><p class="muted-note">${ui('Partial work keeps the reminder. Completing this occurrence advances the next due date.')}</p></div>${completeTaskControl('private-activity')}${evidencePicker('private-activity-files', 'private-activity', 'Images for this activity')}<p id="private-activity-error" role="alert"></p><div class="form-actions"><button class="btn primary" type="submit">Save activity</button></div></form></section>`;
+  return [
+    `<section class="private-activity-composer"><h3 class="card-title">Add activity</h3><form autocomplete="off" id="private-activity-form" data-work-id="${e(i.id)}">`,
+    `<p class="muted-note">${ui('Record what you did. This update counts toward the selected day’s work.')}</p>${
+      i.kind === 'Project'
+        ? `<div class="field"><label for="private-activity-item">Activity belongs to</label><select id="private-activity-item"><option value="${e(i.id)}">Project itself</option>${children
+            .filter((t) => !t.archived && t.status !== 'Completed')
+            .map((t) => `<option value="${e(t.id)}">Task · ${e(t.title)}</option>`)
+            .join('')}</select></div>`
+        : `<input autocomplete="off" id="private-activity-item" type="hidden" value="${e(i.id)}">`
+    }`,
+    [
+      `<div class="field"><label for="private-activity-details">${ui('What did you do?')}</label><textarea autocomplete="off" id="private-activity-details" placeholder="`,
+      `${e(tr('e.g. Finished the first draft. Waiting for feedback.'))}" `,
+    ].join(''),
+    `data-ui-placeholder="e.g. Finished the first draft. Waiting for feedback." required></textarea></div><div class="form-row"><div class="field">`,
+    `<label for="private-activity-date">Work date</label><input autocomplete="off" id="private-activity-date" data-suggested="true" class="suggested-value" type="date" value="${state.day}" required>`,
+    `</div><input autocomplete="off" type="hidden" id="private-activity-status" value=""></div><div id="private-activity-cycle" ${recurring ? '' : 'hidden'}>`,
+    `<label class="completion-choice"><input autocomplete="off" id="private-activity-complete-cycle" type="checkbox"><span class="completion-choice-mark" aria-hidden="true">✓`,
+    `</span><span>${ui('Complete this occurrence')}</span></label><p class="muted-note">${ui('Partial work keeps the reminder. Completing this occurrence advances the next due date.')}`,
+    `</p></div>${completeTaskControl('private-activity')}${evidencePicker('private-activity-files', 'private-activity', 'Images for this activity')}`,
+    `<p id="private-activity-error" role="alert"></p><div class="form-actions"><button class="btn primary" type="submit">Save activity</button>`,
+    `</div></form></section>`,
+  ].join('');
 }
 async function savePrivateActivity(form) {
   const button = form.querySelector('[type="submit"]');
@@ -4619,7 +5440,13 @@ function completionDateRow(item, writable, shared = false) {
   const repeating = !shared && item.recurrence_rule && item.recurrence_rule !== 'none',
     complete = shared ? item.development_status === 'Closed' : item.status === 'Completed';
   if (!complete && !(repeating && item.completed_date)) return '';
-  return `<div class="completion-date-row"><span class="muted-note">${repeating ? 'Last completed' : 'Completed date'}</span>${writable ? `<button type="button" class="account-link" data-completion-date="${shared ? 'engineering' : 'private'}">${item.completed_date ? e(dateFmt(item.completed_date)) : 'Set date'}</button>` : `<span>${item.completed_date ? e(dateFmt(item.completed_date)) : 'Not set'}</span>`}</div>`;
+  return [
+    [
+      `<div class="completion-date-row"><span class="muted-note">${repeating ? 'Last completed' : 'Completed date'}`,
+      `</span>${writable ? `<button type="button" class="account-link" data-completion-date="${shared ? 'engineering' : 'private'}">${item.completed_date ? e(dateFmt(item.completed_date)) : 'Set date'}</button>` : `<span>${item.completed_date ? e(dateFmt(item.completed_date)) : 'Not set'}</span>`}`,
+    ].join(''),
+    `</div>`,
+  ].join('');
 }
 function editCompletionDate(shared = false) {
   const item = shared ? state.detailData?.task : state.privateDetailData?.item;
@@ -4629,8 +5456,13 @@ function editCompletionDate(shared = false) {
     (shared ? !canDev() : !canWrite() || item.owner_email !== state.user.email)
   )
     return;
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>${ui('Update completion date')}</h2><button class="close" data-close="modal">×</button></div><p>${e(item.title)}</p><div class="field"><label for="task-completed-date">Completed date *</label><input autocomplete="off" id="task-completed-date" type="date" value="${e(item.completed_date || todayDate())}"></div><p class="muted-note">${ui('This date belongs to the task. Activity work dates stay separate.')}</p><p id="completed-date-error" role="alert"></p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="save-completed-date">Save date</button></div>`;
+  $('#modal-content').innerHTML = [
+    `<div class="modal-head"><h2>${ui('Update completion date')}</h2><button class="close" data-close="modal">×</button></div><p>${e(item.title)}`,
+    `</p><div class="field"><label for="task-completed-date">Completed date *</label><input autocomplete="off" id="task-completed-date" type="date" value="${e(item.completed_date || todayDate())}">`,
+    `</div><p class="muted-note">${ui('This date belongs to the task. Activity work dates stay separate.')}</p><p id="completed-date-error" role="alert">`,
+    `</p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="save-completed-date">Save date`,
+    `</button></div>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#save-completed-date').onclick = async () => {
     const button = $('#save-completed-date');
@@ -4658,7 +5490,28 @@ document.addEventListener('click', (ev) => {
 });
 function privateTaskStatusTag(i, writable) {
   if (!writable) return badge(i.status);
-  return `<span class="private-status-control"><button type="button" class="private-status-tag" data-private-status-trigger aria-label="Change ${e(i.kind.toLowerCase())} status, currently ${e(i.status)}" aria-expanded="false">${badge(i.status)}</button><span class="private-status-options" id="private-status-options" hidden>${['In Progress', 'Waiting', 'Completed'].map((status) => `<button type="button" class="btn tiny" data-private-status-value="${e(status)}" ${status === i.status ? 'disabled' : ''}>${status === 'Completed' && i.recurrence_rule && i.recurrence_rule !== 'none' ? 'Complete this occurrence' : e(status)}</button>`).join('')}</span></span>`;
+  return [
+    [
+      `<span class="private-status-control"><button type="button" class="private-status-tag" data-private-status-trigger aria-label="Change `,
+      `${e(i.kind.toLowerCase())} status, currently ${e(i.status)}" aria-expanded="false">${badge(i.status)}`,
+    ].join(''),
+    `</button><span class="private-status-options" id="private-status-options" hidden>${[
+      'In Progress',
+      'Waiting',
+      'Completed',
+    ]
+      .map((status) =>
+        [
+          [
+            `<button type="button" class="btn tiny" data-private-status-value="${e(status)}" ${status === i.status ? 'disabled' : ''}>`,
+            `${status === 'Completed' && i.recurrence_rule && i.recurrence_rule !== 'none' ? 'Complete this occurrence' : e(status)}`,
+          ].join(''),
+          `</button>`,
+        ].join(''),
+      )
+      .join('')}`,
+    `</span></span>`,
+  ].join('');
 }
 function confirmPrivateTaskStatus(status) {
   const i = state.privateDetailData?.item;
@@ -4675,8 +5528,20 @@ function confirmPrivateTaskStatus(status) {
   const recurring = i.kind === 'Task' && i.recurrence_rule && i.recurrence_rule !== 'none';
   $('#private-status-options').hidden = true;
   document.querySelector('[data-private-status-trigger]').setAttribute('aria-expanded', 'false');
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>${recurring && status === 'Completed' ? 'Complete this occurrence?' : 'Change ' + e(i.kind.toLowerCase()) + ' status?'}</h2><button class="close" data-close="modal">×</button></div><p>${e(i.title)}</p><p>${badge(i.status)} → ${badge(status)}</p>${status === 'Completed' ? `<div class="field"><label for="private-status-completed-date">Completed date *</label><input autocomplete="off" id="private-status-completed-date" type="date" value="${todayDate()}"></div>${recurring ? `<p class="muted-note">${ui('Only this occurrence is completed. The next repeat stays active.')}</p>` : ''}` : ''}<p id="private-status-error" role="alert"></p><div class="form-actions"><button type="button" class="btn" data-close="modal">Cancel</button><button type="button" class="btn primary" id="confirm-private-status" data-target-status="${e(status)}">${status === 'Completed' ? 'Confirm completion' : 'Confirm status'}</button></div>`;
+  $('#modal-content').innerHTML = [
+    `<div class="modal-head"><h2>${recurring && status === 'Completed' ? 'Complete this occurrence?' : 'Change ' + e(i.kind.toLowerCase()) + ' status?'}`,
+    `</h2><button class="close" data-close="modal">×</button></div><p>${e(i.title)}</p><p>${badge(i.status)} → ${badge(status)}</p>${
+      status === 'Completed'
+        ? [
+            `<div class="field"><label for="private-status-completed-date">Completed date *</label><input autocomplete="off" id="private-status-completed-date" type="date" value="${todayDate()}">`,
+            `</div>${recurring ? `<p class="muted-note">${ui('Only this occurrence is completed. The next repeat stays active.')}</p>` : ''}`,
+          ].join('')
+        : ''
+    }`,
+    `<p id="private-status-error" role="alert"></p><div class="form-actions"><button type="button" class="btn" data-close="modal">Cancel`,
+    `</button><button type="button" class="btn primary" id="confirm-private-status" data-target-status="${e(status)}">${status === 'Completed' ? 'Confirm completion' : 'Confirm status'}`,
+    `</button></div>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#confirm-private-status').onclick = async () => {
     const button = $('#confirm-private-status');
@@ -4726,22 +5591,52 @@ function renderPrivateDetail(d) {
     project = i.kind === 'Project',
     children = d.children || [],
     noun = project ? 'project' : 'task';
-  $('#detail-content').innerHTML =
-    `<div class="panel-header"><span class="panel-kicker">PRIVATE ${e(i.kind.toUpperCase())} · ${e(who(i.owner_email))}</span><button class="close" data-close="detail">×</button></div><div class="panel-body task-focus"><h2 class="detail-heading">${e(i.title)}</h2>${taskIdentity(i)}${instructionFor(project ? 'private-project' : 'private-task')}${project ? '' : '<h3 class="card-title">Task overview</h3>'}<div class="private-overview-status">${privateTaskStatusTag(i, writable)} ${i.archived ? badge('Archived') : recurrenceBadge(i)}</div>${completionDateRow(i, writable)}${inactivityReminder(i)}${i.description ? `<p class="work-notes">${e(i.description)}</p>` : ''}${writable ? `<div class="form-actions"><button class="btn" data-private-edit="${e(i.id)}">Edit ${noun}</button></div>` : owned && i.archived ? `<div class="form-actions"><button class="btn" data-private-restore="${e(i.id)}">Restore ${noun}</button></div>` : ''}${project ? projectTaskList(children, writable, i.id) : ''}${writable ? privateActivityComposer(i, children) : ''}<section id="private-task-evidence"><h3 class="card-title">${project ? 'Project' : 'Task'} attachments</h3><p class="muted-note">${ui(project ? 'Project reference files, such as requirements and design mockups.' : 'Reference images and files for this task.')} ${ui('Add screenshots of daily progress to the corresponding activity.')}</p>${attachmentTiles(
+  $('#detail-content').innerHTML = [
+    `<div class="panel-header"><span class="panel-kicker">PRIVATE ${e(i.kind.toUpperCase())} · ${e(who(i.owner_email))}</span><button class="close" data-close="detail">×`,
+    [
+      `</button></div><div class="panel-body task-focus"><h2 class="detail-heading">${e(i.title)}</h2>${taskIdentity(i)}`,
+      `${instructionFor(project ? 'private-project' : 'private-task')}${project ? '' : '<h3 class="card-title">Task overview</h3>'}`,
+    ].join(''),
+    [
+      `<div class="private-overview-status">${privateTaskStatusTag(i, writable)} ${i.archived ? badge('Archived') : recurrenceBadge(i)}`,
+      `</div>${completionDateRow(i, writable)}${inactivityReminder(i)}${i.description ? `<p class="work-notes">${e(i.description)}</p>` : ''}`,
+      `${writable ? `<div class="form-actions"><button class="btn" data-private-edit="${e(i.id)}">Edit ${noun}</button></div>` : owned && i.archived ? `<div class="form-actions"><button class="btn" data-private-restore="${e(i.id)}">Restore ${noun}</button></div>` : ''}`,
+      `${project ? projectTaskList(children, writable, i.id) : ''}${writable ? privateActivityComposer(i, children) : ''}`,
+    ].join(''),
+    [
+      `<section id="private-task-evidence"><h3 class="card-title">${project ? 'Project' : 'Task'} attachments`,
+      `</h3><p class="muted-note">${ui(project ? 'Project reference files, such as requirements and design mockups.' : 'Reference images and files for this task.')} `,
+      `${ui('Add screenshots of daily progress to the corresponding activity.')}`,
+    ].join(''),
+    `</p>${attachmentTiles(
       d.attachments.filter((a) => a.private_work_id === i.id),
       writable && !project,
-    )}${writable && !project ? evidencePicker('private-task-files', 'private-direct', 'Add task attachments') : ''}</section>${project ? '<section class="private-activity-timeline"><h3 class="card-title">Activity timeline</h3>' : '<details class="task-secondary private-activity-timeline" data-private-section="history"><summary>Activity history</summary>'}<p class="muted-note">${ui(project ? 'Daily progress for this project and its tasks.' : 'Continue this task across days.')} ${ui('Each entry records the work date, details and attachments.')}</p>${
-      d.activities
-        .map(
-          (a) =>
-            `<div class="timeline-item"><div class="timeline-top"><span>${e(dateFmt(a.work_date))} · ${e(who(a.owner_email))}</span></div>${project ? `<p class="muted-note">${a.work_item_id === i.id ? 'Project itself' : `Task · ${e(children.find((t) => t.id === a.work_item_id)?.title || a.title)}`}</p>` : ''}<p><strong>${e(a.title)}</strong></p>${a.details ? `<p class="work-notes">${e(a.details)}</p>` : ''}${attachmentTiles(
-              d.attachments.filter((f) => f.office_id === a.id),
-              writable,
-            )}${writable ? `<button class="account-link" data-office-edit="${e(a.id)}">Edit activity / add images</button>` : ''}</div>`,
-        )
-        .join('') ||
-      empty('No activity yet', 'Add an activity whenever you work on this ' + noun + '.')
-    }${project ? '</section>' : '</details>'}</div>`;
+    )}${writable && !project ? evidencePicker('private-task-files', 'private-direct', 'Add task attachments') : ''}`,
+    `</section>${project ? '<section class="private-activity-timeline"><h3 class="card-title">Activity timeline</h3>' : '<details class="task-secondary private-activity-timeline" data-private-section="history"><summary>Activity history</summary>'}`,
+    `<p class="muted-note">${ui(project ? 'Daily progress for this project and its tasks.' : 'Continue this task across days.')} ${ui('Each entry records the work date, details and attachments.')}`,
+    [
+      `</p>${
+        d.activities
+          .map((a) =>
+            [
+              [
+                `<div class="timeline-item"><div class="timeline-top"><span>${e(dateFmt(a.work_date))} · ${e(who(a.owner_email))}`,
+                `</span></div>${project ? `<p class="muted-note">${a.work_item_id === i.id ? 'Project itself' : `Task · ${e(children.find((t) => t.id === a.work_item_id)?.title || a.title)}`}</p>` : ''}`,
+              ].join(''),
+              `<p><strong>${e(a.title)}</strong></p>${a.details ? `<p class="work-notes">${e(a.details)}</p>` : ''}${attachmentTiles(
+                d.attachments.filter((f) => f.office_id === a.id),
+                writable,
+              )}${writable ? `<button class="account-link" data-office-edit="${e(a.id)}">Edit activity / add images</button>` : ''}`,
+              `</div>`,
+            ].join(''),
+          )
+          .join('') ||
+        empty('No activity yet', 'Add an activity whenever you work on this ' + noun + '.')
+      }`,
+      `${project ? '</section>' : '</details>'}`,
+    ].join(''),
+    `</div>`,
+  ].join('');
   if (writable) {
     syncPrivateActivityCycle();
     updatePrivateActivityFiles();
@@ -4754,7 +5649,11 @@ function inactivityReminder(i) {
 }
 function renderPersonalReminders(items) {
   if (isBoss() || !items.length) return '';
-  return `<section class="card personal-reminders"><div class="card-head"><h2 class="card-title">Daily Work reminders</h2><p class="card-desc">${ui('Due tasks and work that needs a progress update.')}</p></div><div class="card-body">${items.map((i) => `<div class="list-row"><div><button class="private-work-title" data-private-open="${e(i.id)}">${e(i.title)}</button>${inactivityReminder(i)}${recurrenceBadge(i)}</div></div>`).join('')}</div></section>`;
+  return [
+    `<section class="card personal-reminders"><div class="card-head"><h2 class="card-title">Daily Work reminders</h2><p class="card-desc">${ui('Due tasks and work that needs a progress update.')}`,
+    `</p></div><div class="card-body">${items.map((i) => `<div class="list-row"><div><button class="private-work-title" data-private-open="${e(i.id)}">${e(i.title)}</button>${inactivityReminder(i)}${recurrenceBadge(i)}</div></div>`).join('')}`,
+    `</div></section>`,
+  ].join('');
 }
 document.addEventListener('click', (ev) => {
   const b = ev.target.closest('[data-daily-file-remove]');
@@ -4766,8 +5665,15 @@ document.addEventListener('click', (ev) => {
 
 function confirmArchive(path, restore = false) {
   const action = restore ? 'Restore' : 'Archive';
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>${action} this work?</h2><button class="close" data-close="modal">×</button></div><p>${ui(restore ? 'Return this item to active work.' : 'Keep its activity and attachments, and move it out of active work.')}${path.startsWith('/private-work/') && state.privateDetailData?.item.kind === 'Project' ? ' Child tasks keep their individual state.' : ''}</p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="confirm-archive">${action}</button></div>`;
+  $('#modal-content').innerHTML = [
+    [
+      `<div class="modal-head"><h2>${action} this work?</h2><button class="close" data-close="modal">×</button>`,
+      `</div><p>${ui(restore ? 'Return this item to active work.' : 'Keep its activity and attachments, and move it out of active work.')}`,
+      `${path.startsWith('/private-work/') && state.privateDetailData?.item.kind === 'Project' ? ' Child tasks keep their individual state.' : ''}`,
+    ].join(''),
+    `</p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="confirm-archive">${action}`,
+    `</button></div>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#confirm-archive').onclick = () =>
     busy(async () => {
@@ -4865,8 +5771,21 @@ async function saveAccountAvatar(file, remove = false) {
 function accountMenu() {
   if (!state.user) return;
   $('#modal-content').classList.remove('image-preview', 'task-create-modal');
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>My account</h2><button class="close" data-close="modal">×</button></div><div class="account-profile-summary">${avatarHtml(state.user.email, 'account-avatar')}<div><strong>${e(state.user.display_name || who(state.user.email))}</strong><p class="muted-note">${e(state.user.email)}</p></div></div>${instructionFor('account-avatar')}<section id="account-avatar-settings"><h3 class="card-title">Profile photo</h3><div class="task-drop-zone paste-target account-avatar-drop" tabindex="0" role="group" aria-label="Attachment paste area" data-avatar-upload ${avatarSaving ? 'disabled' : ''}><span class="paste-idle">${ui('Click here, then press ⌘V / Ctrl+V to paste an image')}</span><span class="paste-ready" aria-live="polite">${ui('Ready — press ⌘V / Ctrl+V to paste an image here')}</span><span class="paste-drop-hint">${ui('Or drop images or files here')}</span><button type="button" class="btn paste-choose" data-choose-files>${ui('Choose files')}</button></div><input autocomplete="off" type="file" id="account-avatar-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden><p class="muted-note">${ui('PNG, JPG, WebP or GIF, up to 8 MB. You can also paste an image with Ctrl/Cmd + V.')}</p><button type="button" class="account-link danger-link" id="account-remove-avatar" ${state.user.avatar_id ? '' : 'hidden'}>Remove photo</button><p id="avatar-upload-status" class="muted-note" role="status"></p><p id="avatar-upload-error" class="danger-link" role="alert"></p></section><div class="form-actions"><button type="button" class="btn" id="account-change-password">Change password</button><button type="button" class="btn" id="account-sign-out">Sign out</button></div>`;
+  $('#modal-content').innerHTML = [
+    `<div class="modal-head"><h2>My account</h2><button class="close" data-close="modal">×</button></div><div class="account-profile-summary">${avatarHtml(state.user.email, 'account-avatar')}`,
+    `<div><strong>${e(state.user.display_name || who(state.user.email))}</strong><p class="muted-note">${e(state.user.email)}</p></div></div>${instructionFor('account-avatar')}`,
+    `<section id="account-avatar-settings"><h3 class="card-title">Profile photo</h3><div class="task-drop-zone paste-target account-avatar-drop" tabindex="0" role="group" aria-label="Attachment paste area" `,
+    `data-avatar-upload ${avatarSaving ? 'disabled' : ''}><span class="paste-idle">${ui('Click here, then press ⌘V / Ctrl+V to paste an image')}`,
+    `</span><span class="paste-ready" aria-live="polite">${ui('Ready — press ⌘V / Ctrl+V to paste an image here')}</span><span class="paste-drop-hint">${ui('Or drop images or files here')}`,
+    [
+      `</span><button type="button" class="btn paste-choose" data-choose-files>${ui('Choose files')}</button>`,
+      `</div><input autocomplete="off" type="file" id="account-avatar-file" accept="image/png,image/jpeg,image/webp,image/gif" `,
+    ].join(''),
+    `hidden><p class="muted-note">${ui('PNG, JPG, WebP or GIF, up to 8 MB. You can also paste an image with Ctrl/Cmd + V.')}</p><button type="button" class="account-link danger-link" id="account-remove-avatar" `,
+    `${state.user.avatar_id ? '' : 'hidden'}>Remove photo</button><p id="avatar-upload-status" class="muted-note" role="status"></p><p id="avatar-upload-error" class="danger-link" role="alert">`,
+    `</p></section><div class="form-actions"><button type="button" class="btn" id="account-change-password">Change password</button><button type="button" class="btn" id="account-sign-out">Sign out`,
+    `</button></div>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#account-change-password').onclick = () => passwordModal();
   $('#account-sign-out').onclick = () =>
@@ -4930,7 +5849,25 @@ function collaboratorPicker(t, enabled) {
     );
   for (const email of selected)
     if (!members.some((u) => u.email === email)) members.push({ email, enabled: 0 });
-  return `<div class="field collaborator-picker"><label>Collaborators</label><button type="button" class="collaborator-trigger" aria-expanded="false" aria-controls="collaborator-popup" data-collaborator-toggle><span data-collaborator-caption>${selected.length ? e(selected.length === 1 ? who(selected[0]) : 'Selected engineers') : 'Select engineers'}</span><span class="collaborator-count" data-collaborator-count ${selected.length ? '' : 'hidden'}>${selected.length}</span><span aria-hidden="true">⌄</span></button><div class="collaborator-popup" id="collaborator-popup" hidden><input autocomplete="off" type="search" class="collaborator-search" data-collaborator-search aria-label="Search engineers" placeholder="${e(tr('Search engineers'))}" data-ui-placeholder="Search engineers"><div class="collaborator-options">${members.map((u) => `<label class="collaborator-option" data-collaborator-option data-search="${e((who(u.email) + ' ' + u.email).toLowerCase())}"><input autocomplete="off" type="checkbox" name="tracking-collaborator" value="${e(u.email)}" ${selected.includes(u.email) ? 'checked' : ''} ${enabled && u.enabled ? '' : 'disabled'}><span>${e(who(u.email))}${u.enabled ? '' : ` <small>${ui('Unavailable')}</small>`}</span></label>`).join('')}</div><p class="collaborator-empty" hidden>${ui('No matching engineers.')}</p></div></div>`;
+  return [
+    `<div class="field collaborator-picker"><label>Collaborators</label><button type="button" class="collaborator-trigger" aria-expanded="false" aria-controls="collaborator-popup" data-collaborator-toggle>`,
+    `<span data-collaborator-caption>${selected.length ? e(selected.length === 1 ? who(selected[0]) : 'Selected engineers') : 'Select engineers'}`,
+    `</span><span class="collaborator-count" data-collaborator-count ${selected.length ? '' : 'hidden'}>${selected.length}</span><span aria-hidden="true">⌄`,
+    `</span></button><div class="collaborator-popup" id="collaborator-popup" hidden><input autocomplete="off" type="search" class="collaborator-search" data-collaborator-search aria-label="Search engineers" `,
+    [
+      `placeholder="${e(tr('Search engineers'))}" data-ui-placeholder="Search engineers"><div class="collaborator-options">`,
+      `${members
+        .map((u) =>
+          [
+            `<label class="collaborator-option" data-collaborator-option data-search="${e((who(u.email) + ' ' + u.email).toLowerCase())}"><input autocomplete="off" type="checkbox" name="tracking-collaborator" value="${e(u.email)}" `,
+            `${selected.includes(u.email) ? 'checked' : ''} ${enabled && u.enabled ? '' : 'disabled'}><span>${e(who(u.email))}${u.enabled ? '' : ` <small>${ui('Unavailable')}</small>`}`,
+            `</span></label>`,
+          ].join(''),
+        )
+        .join('')}`,
+    ].join(''),
+    `</div><p class="collaborator-empty" hidden>${ui('No matching engineers.')}</p></div></div>`,
+  ].join('');
 }
 function closeCollaboratorPicker(restoreFocus = false) {
   const popup = $('#collaborator-popup'),
@@ -5013,7 +5950,13 @@ function undoStagePreview(d) {
       return `<div class="undo-change-row"><span>${e(label)}</span><div><span class="undo-before">${e(format(t[key]))}</span><span aria-hidden="true">→</span><strong>${e(format(before[key]))}</strong></div></div>`;
     })
     .join('');
-  return `<div class="undo-stage-preview" aria-label="${e(tr('Changes to restore'))}"><h4>${ui('Changes to restore')}</h4>${rows || `<p class="muted-note">${ui('The latest stage update will be restored to its previous saved values.')}</p>`}</div>`;
+  return [
+    [
+      `<div class="undo-stage-preview" aria-label="${e(tr('Changes to restore'))}"><h4>${ui('Changes to restore')}`,
+      `</h4>${rows || `<p class="muted-note">${ui('The latest stage update will be restored to its previous saved values.')}</p>`}`,
+    ].join(''),
+    `</div>`,
+  ].join('');
 }
 function canUndoPreviousStage(d) {
   if (!d.activities?.length) return false;
@@ -5026,8 +5969,18 @@ function canUndoPreviousStage(d) {
 function stageCorrectionControl(d, writable, compact = false) {
   if (!writable || !(canDev() || canQA()) || !undoStageContext(d)) return '';
   if (compact)
-    return `<footer class="previous-stage-correction"><span class="muted-note">${ui('Confirmed this stage by mistake? Preview the undo before restoring it.')}</span><button type="button" class="account-link" data-undo-stage>Undo this stage change…</button></footer>`;
-  return `<section class="stage-correction"><h4>${ui('Correct a mistaken stage change')}</h4><p class="muted-note">${ui('Use this only if you confirmed the wrong stage. Review what will be restored before continuing.')}</p>${undoStagePreview(d)}<button type="button" class="btn" data-undo-stage>Undo last stage change</button><p class="muted-note">${ui('This changes the Work Tracker record only. It does not undo code merges or deployments. For failed QA, record the QA result in Next Step.')}</p></section>`;
+    return [
+      `<footer class="previous-stage-correction"><span class="muted-note">${ui('Confirmed this stage by mistake? Preview the undo before restoring it.')}`,
+      `</span><button type="button" class="account-link" data-undo-stage>Undo this stage change…</button></footer>`,
+    ].join('');
+  return [
+    `<section class="stage-correction"><h4>${ui('Correct a mistaken stage change')}</h4><p class="muted-note">${ui('Use this only if you confirmed the wrong stage. Review what will be restored before continuing.')}`,
+    [
+      `</p>${undoStagePreview(d)}<button type="button" class="btn" data-undo-stage>Undo last stage change`,
+      `</button><p class="muted-note">${ui('This changes the Work Tracker record only. It does not undo code merges or deployments. For failed QA, record the QA result in Next Step.')}`,
+    ].join(''),
+    `</p></section>`,
+  ].join('');
 }
 function showUndoStageConfirmation(d) {
   if (!undoStageContext(d))
@@ -5035,7 +5988,12 @@ function showUndoStageConfirmation(d) {
   const t = d.task;
   return trackingConfirmation(
     'Undo last stage change?',
-    `<p>${ui('Correct a mistaken confirmation by restoring the saved values below. Activity history is kept.')}</p>${undoStagePreview(d)}<p class="muted-note">${ui('This changes the Work Tracker record only. It does not undo code merges or deployments. For failed QA, record the QA result in Next Step.')}</p><div class="field"><label for="undo-reason">${ui('Why was this stage change a mistake?')} *</label><textarea autocomplete="off" id="undo-reason" required placeholder="${e(tr('e.g. I clicked the wrong stage.'))}" data-ui-placeholder="e.g. I clicked the wrong stage."></textarea></div>`,
+    [
+      `<p>${ui('Correct a mistaken confirmation by restoring the saved values below. Activity history is kept.')}</p>${undoStagePreview(d)}`,
+      `<p class="muted-note">${ui('This changes the Work Tracker record only. It does not undo code merges or deployments. For failed QA, record the QA result in Next Step.')}`,
+      `</p><div class="field"><label for="undo-reason">${ui('Why was this stage change a mistake?')} *</label><textarea autocomplete="off" id="undo-reason" required placeholder="${e(tr('e.g. I clicked the wrong stage.'))}" `,
+      `data-ui-placeholder="e.g. I clicked the wrong stage."></textarea></div>`,
+    ].join(''),
     () =>
       api('/tasks/' + t.id + '/undo-stage', {
         method: 'POST',
@@ -5064,23 +6022,157 @@ function trackingOverview(d, writable) {
         state.user.groups.includes('PM') ||
         (t.planning_status === 'Backlog' && me === t.created_by));
   const field = (label, id, value, type = 'text') =>
-    `<div class="field"><label>${e(label)}</label><input autocomplete="off" id="tracking-${id}" type="${type}" value="${e(value || '')}" ${editable && (id !== 'qa-due' || (canQA() && d.workflow.phase === 'qa')) && (id !== 'delivery' || (owner && d.workflow.phase === 'development' && !t.delivery_reset_required)) ? '' : 'disabled'}></div>`;
+    [
+      [
+        `<div class="field"><label>${e(label)}</label><input autocomplete="off" id="tracking-${id}" type="`,
+        `${type}" value="${e(value || '')}" ${editable && (id !== 'qa-due' || (canQA() && d.workflow.phase === 'qa')) && (id !== 'delivery' || (owner && d.workflow.phase === 'development' && !t.delivery_reset_required)) ? '' : 'disabled'}`,
+        `>`,
+      ].join(''),
+      `</div>`,
+    ].join('');
   const collaborators = JSON.parse(t.collaborators_json || '[]');
-  const dates = `<p class="muted-note">Original Engineering estimate: ${e(dateFmt(t.original_delivery_date))} · Engineering completed: ${e(dateFmt(t.engineering_completed_date))} · QA completed: ${e(dateFmt(t.qa_completed_date))} · Final completion: ${e(dateFmt(t.completed_date))}</p>`;
-  return `<section class="tracking-section"><h3 class="card-title">Work tracking</h3>${t.follow_up ? `<p>${badge(t.follow_up.status)}${t.follow_up.overdue ? ' ' + badge('Overdue') : ''}</p>` : ''}${t.delivery_reset_required ? `<p role="alert">${ui('Set a new Engineering delivery date before sending the fixed build to QA.')}</p>` : ''}<div class="form-row"><div class="field"><label>Planning status</label><select id="tracking-planning" ${editable && t.development_status !== 'Closed' ? '' : 'disabled'}>${option(t.development_status === 'Closed' ? ['Completed'] : ['Backlog', 'Planned', 'Active'], t.planning_status)}</select></div>${simple ? `<div class="field"><label>Status</label><select id="tracking-status" ${writable && owner ? '' : 'disabled'}>${option(['To Do', 'In Progress', 'Completed'], t.work_status)}</select></div>${field('Completed Date', 'completed', t.completed_date, 'date')}` : field(d.workflow.phase === 'development' && !t.delivery_reset_required ? 'Engineering estimated delivery' : 'Last Engineering estimate (reference)', 'delivery', t.estimated_delivery_date, 'date') + field(d.workflow.phase === 'qa' ? 'QA due date' : 'QA round due (reference)', 'qa-due', t.qa_due_date, 'date')}</div>${simple ? `<div class="form-row"><div class="field"><label>Title</label><input autocomplete="off" id="tracking-title" value="${e(t.title)}" ${editable ? '' : 'disabled'}></div><div class="field"><label>Owner</label><select id="tracking-owner" ${editable ? '' : 'disabled'}>${workOwnerOptions(t.work_kind, t.assignee)}</select></div></div><div class="field"><label>Description (optional)</label><textarea autocomplete="off" id="tracking-description" ${editable ? '' : 'disabled'}>${e(t.description)}</textarea></div>` : dates}<div class="form-row">${field('Blocked / waiting reason', 'blocked', t.blocked_reason)}${field('Follow-up date', 'follow-up', t.follow_up_date, 'date')}</div>${!simple ? `<div class="tracking-owner-grid"><div class="field"><label for="tracking-primary">Primary Owner</label><select id="tracking-primary" ${editable && (canManage() || me === t.primary_owner || (t.planning_status === 'Backlog' && !t.primary_owner && me === t.created_by)) ? '' : 'disabled'}>${workflowMemberOptions('Engineering', t.primary_owner || t.assignee)}</select></div>${collaboratorPicker(t, editable && (canManage() || me === t.primary_owner || (t.planning_status === 'Backlog' && !t.primary_owner && me === t.created_by)))}</div>` : ''}${editable ? `<button class="btn" data-save-tracking>Save</button>${simple && owner ? '<button class="btn" data-simple-status>Confirm task status</button>' : ''}` : ''}${
-    d.stage_changes?.length
-      ? `<details class="stage-change-history"><summary>Stage change history</summary>${!simple && !canUndoPreviousStage(d) ? stageCorrectionControl(d, writable) : ''}${d.stage_changes
-          .map((h) => {
-            const before = JSON.parse(h.before_json),
-              after = JSON.parse(h.after_json);
-            return `<p class="muted-note">${e(timeFmt(h.recorded_at))}: ${e(before.development_status)} → ${e(after.development_status)} · QA ${e(before.qa_status)} → ${e(after.qa_status)}${h.undone ? ` · Undone by ${e(who(h.undo_actor))}: ${e(h.undo_reason)}` : ''}</p>`;
-          })
-          .join('')}</details>`
-      : ''
-  }${d.qa_rounds?.length ? `<details><summary>QA round history</summary>${d.qa_rounds.map((q) => `<p class="muted-note">Entered ${e(timeFmt(q.entered_at))} · Engineering estimate ${e(dateFmt(q.engineering_due))} · QA due ${e(dateFmt(q.due_date))} · ${e(q.result || 'Awaiting test')} ${e(dateFmt(q.completed_date))}${q.is_undone ? ' · Undone' : ''}</p>`).join('')}</details>` : ''}</section>${!simple ? `<section class="tracking-section"><h3 class="card-title">Collaboration</h3>${(d.collaborator_work || []).map((c) => `<p>${e(who(c.email))} · ${e(c.status)} · ${e(c.description)}</p>`).join('')}${writable && owner && collaborators.length ? `<div class="form-row"><div class="field"><label>Collaborator</label><select id="collaboration-owner">${collaborators.map((email) => `<option value="${e(email)}">${e(who(email))}</option>`).join('')}</select></div><div class="field"><label>Assistance needed</label><input autocomplete="off" id="collaboration-description"></div><div class="field"><label>Status</label><select id="collaboration-status">${option(['Open', 'Completed'], 'Open')}</select></div></div><button class="btn" data-save-collaboration>Save assigned assistance</button>` : ''}</section>` : ''}`;
+  const dates = [
+    [
+      `<p class="muted-note">Original Engineering estimate: ${e(dateFmt(t.original_delivery_date))} · Engineering completed: `,
+      `${e(dateFmt(t.engineering_completed_date))} · QA completed: ${e(dateFmt(t.qa_completed_date))} · Final completion: `,
+      `${e(dateFmt(t.completed_date))}`,
+    ].join(''),
+    `</p>`,
+  ].join('');
+  return [
+    [
+      `<section class="tracking-section"><h3 class="card-title">Work tracking</h3>${t.follow_up ? `<p>${badge(t.follow_up.status)}${t.follow_up.overdue ? ' ' + badge('Overdue') : ''}</p>` : ''}`,
+      `${t.delivery_reset_required ? `<p role="alert">${ui('Set a new Engineering delivery date before sending the fixed build to QA.')}</p>` : ''}`,
+    ].join(''),
+    [
+      `<div class="form-row"><div class="field"><label>Planning status</label><select id="tracking-planning" `,
+      `${editable && t.development_status !== 'Closed' ? '' : 'disabled'}>${option(t.development_status === 'Closed' ? ['Completed'] : ['Backlog', 'Planned', 'Active'], t.planning_status)}`,
+    ].join(''),
+    `</select></div>${
+      simple
+        ? [
+            `<div class="field"><label>Status</label><select id="tracking-status" ${writable && owner ? '' : 'disabled'}>${option(['To Do', 'In Progress', 'Completed'], t.work_status)}`,
+            `</select></div>${field('Completed Date', 'completed', t.completed_date, 'date')}`,
+          ].join('')
+        : field(
+            d.workflow.phase === 'development' && !t.delivery_reset_required
+              ? 'Engineering estimated delivery'
+              : 'Last Engineering estimate (reference)',
+            'delivery',
+            t.estimated_delivery_date,
+            'date',
+          ) +
+          field(
+            d.workflow.phase === 'qa' ? 'QA due date' : 'QA round due (reference)',
+            'qa-due',
+            t.qa_due_date,
+            'date',
+          )
+    }`,
+    `</div>${
+      simple
+        ? [
+            `<div class="form-row"><div class="field"><label>Title</label><input autocomplete="off" id="tracking-title" value="${e(t.title)}" ${editable ? '' : 'disabled'}>`,
+            `</div><div class="field"><label>Owner</label><select id="tracking-owner" ${editable ? '' : 'disabled'}>${workOwnerOptions(t.work_kind, t.assignee)}`,
+            `</select></div></div><div class="field"><label>Description (optional)</label><textarea autocomplete="off" id="tracking-description" ${editable ? '' : 'disabled'}>${e(t.description)}`,
+            `</textarea></div>`,
+          ].join('')
+        : dates
+    }`,
+    `<div class="form-row">${field('Blocked / waiting reason', 'blocked', t.blocked_reason)}${field('Follow-up date', 'follow-up', t.follow_up_date, 'date')}`,
+    [
+      `</div>${
+        !simple
+          ? [
+              [
+                `<div class="tracking-owner-grid"><div class="field"><label for="tracking-primary">Primary Owner</label>`,
+                `<select id="tracking-primary" ${editable && (canManage() || me === t.primary_owner || (t.planning_status === 'Backlog' && !t.primary_owner && me === t.created_by)) ? '' : 'disabled'}`,
+                `>${workflowMemberOptions('Engineering', t.primary_owner || t.assignee)}`,
+              ].join(''),
+              `</select></div>${collaboratorPicker(t, editable && (canManage() || me === t.primary_owner || (t.planning_status === 'Backlog' && !t.primary_owner && me === t.created_by)))}`,
+              `</div>`,
+            ].join('')
+          : ''
+      }`,
+      `${editable ? `<button class="btn" data-save-tracking>Save</button>${simple && owner ? '<button class="btn" data-simple-status>Confirm task status</button>' : ''}` : ''}`,
+      `${
+        d.stage_changes?.length
+          ? [
+              [
+                `<details class="stage-change-history"><summary>Stage change history</summary>${!simple && !canUndoPreviousStage(d) ? stageCorrectionControl(d, writable) : ''}`,
+                `${d.stage_changes
+                  .map((h) => {
+                    const before = JSON.parse(h.before_json),
+                      after = JSON.parse(h.after_json);
+                    return [
+                      [
+                        `<p class="muted-note">${e(timeFmt(h.recorded_at))}: ${e(before.development_status)} → ${e(after.development_status)} · QA `,
+                        `${e(before.qa_status)} → ${e(after.qa_status)}${h.undone ? ` · Undone by ${e(who(h.undo_actor))}: ${e(h.undo_reason)}` : ''}`,
+                      ].join(''),
+                      `</p>`,
+                    ].join('');
+                  })
+                  .join('')}`,
+              ].join(''),
+              `</details>`,
+            ].join('')
+          : ''
+      }`,
+      `${
+        d.qa_rounds?.length
+          ? [
+              `<details><summary>QA round history</summary>${d.qa_rounds
+                .map((q) =>
+                  [
+                    [
+                      `<p class="muted-note">Entered ${e(timeFmt(q.entered_at))} · Engineering estimate ${e(dateFmt(q.engineering_due))} · QA due `,
+                      `${e(dateFmt(q.due_date))} · ${e(q.result || 'Awaiting test')} ${e(dateFmt(q.completed_date))}${q.is_undone ? ' · Undone' : ''}`,
+                    ].join(''),
+                    `</p>`,
+                  ].join(''),
+                )
+                .join('')}`,
+              `</details>`,
+            ].join('')
+          : ''
+      }`,
+    ].join(''),
+    `</section>${
+      !simple
+        ? [
+            [
+              `<section class="tracking-section"><h3 class="card-title">Collaboration</h3>${(d.collaborator_work || []).map((c) => `<p>${e(who(c.email))} · ${e(c.status)} · ${e(c.description)}</p>`).join('')}`,
+              `${
+                writable && owner && collaborators.length
+                  ? [
+                      `<div class="form-row"><div class="field"><label>Collaborator</label><select id="collaboration-owner">${collaborators.map((email) => `<option value="${e(email)}">${e(who(email))}</option>`).join('')}`,
+                      `</select></div><div class="field"><label>Assistance needed</label><input autocomplete="off" id="collaboration-description"></div><div class="field">`,
+                      `<label>Status</label><select id="collaboration-status">${option(['Open', 'Completed'], 'Open')}</select></div></div><button class="btn" data-save-collaboration>Save assigned assistance`,
+                      `</button>`,
+                    ].join('')
+                  : ''
+              }`,
+            ].join(''),
+            `</section>`,
+          ].join('')
+        : ''
+    }`,
+  ].join('');
 }
 function discussionActionControls(d) {
-  return `<section class="tracking-section"><h3 class="card-title">Discussion requests</h3>${(d.discussion_actions || []).map((a) => `<p>${e(who(a.owner_email))} · ${e(a.body)} · ${a.resolved ? 'Resolved' : `Awaiting response ${canWrite() && (a.owner_email === state.user.email || canManage()) ? `<button class="account-link" data-resolve-discussion="${e(a.id)}">Resolved</button>` : ''}`}</p>`).join('') || '<p class="muted-note">No explicit requests.</p>'}</section>`;
+  return [
+    `<section class="tracking-section"><h3 class="card-title">Discussion requests</h3>${
+      (d.discussion_actions || [])
+        .map((a) =>
+          [
+            `<p>${e(who(a.owner_email))} · ${e(a.body)} · ${a.resolved ? 'Resolved' : `Awaiting response ${canWrite() && (a.owner_email === state.user.email || canManage()) ? `<button class="account-link" data-resolve-discussion="${e(a.id)}">Resolved</button>` : ''}`}`,
+            `</p>`,
+          ].join(''),
+        )
+        .join('') || '<p class="muted-note">No explicit requests.</p>'
+    }`,
+    `</section>`,
+  ].join('');
 }
 function discussionRecipientPicker() {
   return `<div class="field"><label>Response needed from (optional)</label><select id="comment-action-owners" aria-label="Response needed from" multiple>${state.users
@@ -5090,12 +6182,30 @@ function discussionRecipientPicker() {
 }
 function sharedActivityTimeline(d, writable) {
   return timelineRecords(d)
-    .map(
-      (a) =>
-        `<div class="timeline-item"><strong>${e(who(a.actor_email))} · ${e(a.action_type)} · ${e(dateFmt(a.activity_date))}</strong>${a.urgent_event ? `<p class="muted-note">${e(timeFmt(a.created_at))}</p>` : ''}<p class="work-notes">${e(a.notes)}</p><p class="muted-note">${e(a.result)}${a.excluded ? ' · Undone stage change; excluded from workload' : ''}</p>${attachmentTiles(
-          d.attachments.filter((f) => f.activity_id === a.id),
-          false,
-        )}${writable && !a.urgent_event && !a.comment_id && (a.actor_email === state.user.email || canManage()) ? `<button class="account-link" data-edit-shared-activity="${e(a.id)}">Edit activity</button>` : ''}${a.edit_history?.length ? `<details><summary>Edit history</summary><p class="tracking-history">Original: ${e(a.original_notes)}</p>${a.edit_history.map((h) => `<p class="tracking-history">${e(timeFmt(h.recorded_at))} · ${e(who(h.actor_email))} · ${e(h.activity_date)}<br>${e(h.notes)}</p>`).join('')}</details>` : ''}</div>`,
+    .map((a) =>
+      [
+        `<div class="timeline-item"><strong>${e(who(a.actor_email))} · ${e(a.action_type)} · ${e(dateFmt(a.activity_date))}</strong>${a.urgent_event ? `<p class="muted-note">${e(timeFmt(a.created_at))}</p>` : ''}`,
+        `<p class="work-notes">${e(a.notes)}</p><p class="muted-note">${e(a.result)}${a.excluded ? ' · Undone stage change; excluded from workload' : ''}`,
+        [
+          `</p>${attachmentTiles(
+            d.attachments.filter((f) => f.activity_id === a.id),
+            false,
+          )}`,
+          `${writable && !a.urgent_event && !a.comment_id && (a.actor_email === state.user.email || canManage()) ? `<button class="account-link" data-edit-shared-activity="${e(a.id)}">Edit activity</button>` : ''}`,
+          `${
+            a.edit_history?.length
+              ? [
+                  [
+                    `<details><summary>Edit history</summary><p class="tracking-history">Original: ${e(a.original_notes)}`,
+                    `</p>${a.edit_history.map((h) => `<p class="tracking-history">${e(timeFmt(h.recorded_at))} · ${e(who(h.actor_email))} · ${e(h.activity_date)}<br>${e(h.notes)}</p>`).join('')}`,
+                  ].join(''),
+                  `</details>`,
+                ].join('')
+              : ''
+          }`,
+        ].join(''),
+        `</div>`,
+      ].join(''),
     )
     .join('');
 }
@@ -5105,7 +6215,22 @@ function pmCanEdit(t) {
 function pmSourceDetails(d, writable) {
   const t = d.task;
   if (!t.pm_owner) return '';
-  return `<details class="task-secondary pm-source-details"><summary>PM source · ${e(who(t.pm_owner))}</summary><p class="muted-note">${ui('This Engineering task was handed off from PM. Its original design and handoff history stay with the same task.')}</p><span class="pm-category">${e(t.work_category)}</span><h4>Design / details</h4><p class="work-notes">${e(t.pm_solution)}</p><details><summary>Handoff & design history</summary>${(d.pm_handoffs || []).map((h) => `<div class="timeline-item"><strong>${e(h.from_stage)} → ${e(h.to_stage)}</strong><p class="muted-note">${e(who(h.actor_email))} · ${e(timeFmt(h.recorded_at))}</p><p class="work-notes">${e(h.notes)}</p>${h.action === 'save' ? `<p class="work-notes">${e(h.solution)}</p>` : ''}</div>`).join('')}</details></details>`;
+  return [
+    [
+      `<details class="task-secondary pm-source-details"><summary>PM source · ${e(who(t.pm_owner))}</summary>`,
+      `<p class="muted-note">${ui('This Engineering task was handed off from PM. Its original design and handoff history stay with the same task.')}`,
+    ].join(''),
+    `</p><span class="pm-category">${e(t.work_category)}</span><h4>Design / details</h4><p class="work-notes">${e(t.pm_solution)}</p><details>`,
+    `<summary>Handoff & design history</summary>${(d.pm_handoffs || [])
+      .map((h) =>
+        [
+          `<div class="timeline-item"><strong>${e(h.from_stage)} → ${e(h.to_stage)}</strong><p class="muted-note">${e(who(h.actor_email))} · ${e(timeFmt(h.recorded_at))}`,
+          `</p><p class="work-notes">${e(h.notes)}</p>${h.action === 'save' ? `<p class="work-notes">${e(h.solution)}</p>` : ''}</div>`,
+        ].join(''),
+      )
+      .join('')}`,
+    `</details></details>`,
+  ].join('');
 }
 function pmDesignReadiness(d) {
   const t = d.task,
@@ -5124,10 +6249,30 @@ function pmDesignReadiness(d) {
     request,
   };
 }
+function pmReadinessItem(label, complete, missingHint) {
+  return [
+    `<li class="${complete ? 'is-complete' : 'is-missing'}">`,
+    `<span aria-hidden="true">${complete ? '✓' : '○'}</span>`,
+    `<span>${ui(label)}</span>`,
+    `<small>${ui(complete ? 'Saved' : missingHint)}</small>`,
+    '</li>',
+  ].join('');
+}
+
 function pmReadinessList(d) {
-  const r = pmDesignReadiness(d),
-    needs = d.task.pm_stage === 'Needs Details';
-  return `<ul class="pm-readiness-list" aria-label="Design readiness"><li class="${r.requirement ? 'is-complete' : 'is-missing'}"><span aria-hidden="true">${r.requirement ? '✓' : '○'}</span><span>${ui('Requirement recorded')}</span><small>${ui(r.requirement ? 'Saved' : 'Add a requirement')}</small></li><li class="${r.design ? 'is-complete' : 'is-missing'}"><span aria-hidden="true">${r.design ? '✓' : '○'}</span><span>${ui('Design details recorded')}</span><small>${ui(r.design ? 'Saved' : 'Add design details')}</small></li>${needs ? `<li class="${r.detailsUpdated ? 'is-complete' : 'is-missing'}"><span aria-hidden="true">${r.detailsUpdated ? '✓' : '○'}</span><span>${ui('Requested details updated')}</span><small>${ui(r.detailsUpdated ? 'Saved' : 'Update the design')}</small></li>` : ''}</ul>`;
+  const readiness = pmDesignReadiness(d);
+  const items = [
+    pmReadinessItem('Requirement recorded', readiness.requirement, 'Add a requirement'),
+    pmReadinessItem('Design details recorded', readiness.design, 'Add design details'),
+  ];
+
+  if (d.task.pm_stage === 'Needs Details') {
+    items.push(
+      pmReadinessItem('Requested details updated', readiness.detailsUpdated, 'Update the design'),
+    );
+  }
+
+  return `<ul class="pm-readiness-list" aria-label="Design readiness">${items.join('')}</ul>`;
 }
 function pmWorkflowCard(d, writable) {
   const t = d.task,
@@ -5168,12 +6313,22 @@ function pmWorkflowCard(d, writable) {
   let actions = '';
   if (active && !t.archived) {
     if (owner && stage === 'Draft')
-      actions = `${!r.ready ? '<button class="btn primary" data-edit-pm data-pm-edit-focus="design">Add design details</button>' : ''}<button class="btn ${r.ready ? 'primary' : ''}" data-pm-action="design-ready" ${r.ready ? '' : 'disabled'}>Mark design ready <span aria-hidden="true">→</span></button>${r.ready ? '<button class="account-link" data-edit-pm data-pm-edit-focus="design">Edit design</button>' : ''}`;
+      actions = [
+        [
+          `${!r.ready ? '<button class="btn primary" data-edit-pm data-pm-edit-focus="design">Add design details</button>' : ''}`,
+          `<button class="btn ${r.ready ? 'primary' : ''}" data-pm-action="design-ready" ${r.ready ? '' : 'disabled'}>Mark design ready `,
+        ].join(''),
+        `<span aria-hidden="true">→</span></button>${r.ready ? '<button class="account-link" data-edit-pm data-pm-edit-focus="design">Edit design</button>' : ''}`,
+      ].join('');
     if (owner && stage === 'Design Ready')
       actions =
         '<button class="btn primary" data-pm-action="handoff">Choose engineer & hand off <span aria-hidden="true">→</span></button><button class="account-link" data-pm-action="revise-design">Back to Draft</button>';
     if (owner && stage === 'Needs Details')
-      actions = `${!r.detailsUpdated || !r.design ? '<button class="btn primary" data-edit-pm data-pm-edit-focus="design">Add requested details</button>' : ''}<button class="btn ${r.ready ? 'primary' : ''}" data-pm-action="handoff" ${r.ready ? '' : 'disabled'}>Resubmit Handoff <span aria-hidden="true">→</span></button>`;
+      actions = [
+        `${!r.detailsUpdated || !r.design ? '<button class="btn primary" data-edit-pm data-pm-edit-focus="design">Add requested details</button>' : ''}`,
+        `<button class="btn ${r.ready ? 'primary' : ''}" data-pm-action="handoff" ${r.ready ? '' : 'disabled'}>Resubmit Handoff <span aria-hidden="true">→`,
+        `</span></button>`,
+      ].join('');
   }
   const nextOwner = ['Engineer Review'].includes(stage)
     ? t.pm_engineer
@@ -5182,7 +6337,31 @@ function pmWorkflowCard(d, writable) {
       : stage === 'Completed'
         ? ''
         : pm;
-  return `<section class="pm-workflow-card pm-workflow-guided" data-pm-stage="${e(stage)}"><div class="pm-workflow-head"><h3 class="card-title">PM workflow</h3>${badge(stage)}</div><ol class="pm-steps" aria-label="PM handoff progress">${labels.map((label, i) => `<li class="${stage === 'Completed' || i < current ? 'is-done' : i === current ? 'is-current' : ''}" ${stage !== 'Completed' && i === current ? 'aria-current="step"' : ''}><span class="pm-step-marker">${stage === 'Completed' || i < current ? '✓' : i + 1}</span><div><strong>${label}</strong><small>${ui(hints[i])}</small></div></li>`).join('')}</ol><div class="pm-stage-guidance" role="status"><span class="pm-stage-symbol" aria-hidden="true">${stage === 'Design Ready' || stage === 'Completed' ? '✓' : stage === 'Needs Details' ? '!' : stage === 'Engineer Review' ? '→' : '✎'}</span><div><h4>${ui(titles[stage] || titles.Draft)}</h4><p>${ui(descriptions[stage] || descriptions.Draft)}</p></div></div>${revised ? `<p class="pm-revision-note">${ui('The ready design was changed. Review the updated version and mark it ready again.')}</p>` : ''}${stage === 'Draft' || stage === 'Needs Details' ? pmReadinessList(d) : ''}${stage === 'Needs Details' && r.request ? `<div class="pm-question"><strong>@${e(who(pm))} · Details needed</strong><p class="work-notes">${e(r.request.notes)}</p></div>` : ''}${!active && !t.archived && stage !== 'Completed' ? `<p class="pm-revision-note">${ui('Set Planning status to Active in Work tracking when you are ready to continue.')}</p>` : ''}<div class="pm-action-footer"><div class="pm-action-owner">${nextOwner ? `${avatarHtml(nextOwner)}<span><small>${ui(stage === 'Design Ready' ? 'Handoff owner' : 'Next action owner')}</small><strong>${e(who(nextOwner))}</strong></span>` : `<span>${ui('No further action needed.')}</span>`}</div>${actions ? `<div class="pm-workflow-actions">${actions}</div>` : ''}${!owner && ['Draft', 'Design Ready', 'Needs Details'].includes(stage) && active && !t.archived ? `<p class="pm-waiting-note">${ui('Waiting for {owner} to continue.', { owner: who(pm) })}</p>` : ''}</div></section>`;
+  return [
+    `<section class="pm-workflow-card pm-workflow-guided" data-pm-stage="${e(stage)}"><div class="pm-workflow-head"><h3 class="card-title">PM workflow`,
+    `</h3>${badge(stage)}</div><ol class="pm-steps" aria-label="PM handoff progress">${labels
+      .map((label, i) =>
+        [
+          `<li class="${stage === 'Completed' || i < current ? 'is-done' : i === current ? 'is-current' : ''}" ${stage !== 'Completed' && i === current ? 'aria-current="step"' : ''}>`,
+          `<span class="pm-step-marker">${stage === 'Completed' || i < current ? '✓' : i + 1}</span><div><strong>${label}</strong><small>${ui(hints[i])}`,
+          `</small></div></li>`,
+        ].join(''),
+      )
+      .join('')}`,
+    [
+      `</ol><div class="pm-stage-guidance" role="status"><span class="pm-stage-symbol" aria-hidden="true">`,
+      `${stage === 'Design Ready' || stage === 'Completed' ? '✓' : stage === 'Needs Details' ? '!' : stage === 'Engineer Review' ? '→' : '✎'}`,
+    ].join(''),
+    [
+      `</span><div><h4>${ui(titles[stage] || titles.Draft)}</h4><p>${ui(descriptions[stage] || descriptions.Draft)}`,
+      `</p></div></div>${revised ? `<p class="pm-revision-note">${ui('The ready design was changed. Review the updated version and mark it ready again.')}</p>` : ''}`,
+      `${stage === 'Draft' || stage === 'Needs Details' ? pmReadinessList(d) : ''}${stage === 'Needs Details' && r.request ? `<div class="pm-question"><strong>@${e(who(pm))} · Details needed</strong><p class="work-notes">${e(r.request.notes)}</p></div>` : ''}`,
+      `${!active && !t.archived && stage !== 'Completed' ? `<p class="pm-revision-note">${ui('Set Planning status to Active in Work tracking when you are ready to continue.')}</p>` : ''}`,
+    ].join(''),
+    `<div class="pm-action-footer"><div class="pm-action-owner">${nextOwner ? `${avatarHtml(nextOwner)}<span><small>${ui(stage === 'Design Ready' ? 'Handoff owner' : 'Next action owner')}</small><strong>${e(who(nextOwner))}</strong></span>` : `<span>${ui('No further action needed.')}</span>`}`,
+    `</div>${actions ? `<div class="pm-workflow-actions">${actions}</div>` : ''}${!owner && ['Draft', 'Design Ready', 'Needs Details'].includes(stage) && active && !t.archived ? `<p class="pm-waiting-note">${ui('Waiting for {owner} to continue.', { owner: who(pm) })}</p>` : ''}`,
+    `</div></section>`,
+  ].join('');
 }
 function renderPmDetail(d) {
   state.detailData = d;
@@ -5191,13 +6370,59 @@ function renderPmDetail(d) {
     edit = pmCanEdit(t),
     record = writable && edit,
     related = d.links || [];
-  $('#detail-content').innerHTML =
-    `<div class="panel-header"><span class="panel-kicker">PM Task ${t.archived ? badge('Archived') : ''}</span><button class="close" data-close="detail" aria-label="Close task">×</button></div><div class="panel-body task-focus">${taskHeading(d)}${instructionFor('pm-task')}${pmWorkflowCard(d, writable)}<section class="pm-design-card"><div class="pm-workflow-head"><h3 class="card-title">Requirement & design</h3>${edit && !t.archived ? '<button class="btn tiny" data-edit-pm>Edit PM task</button>' : ''}</div><span class="pm-category">${e(t.work_category)}</span><h4>Requirement / idea</h4><p class="work-notes">${e(t.description) || ui('Add the requirement, problem and intended outcome.')}</p><h4>Design / details</h4><p class="work-notes">${e(t.pm_solution) || ui('Record the proposed design and acceptance details before Handoff.')}</p></section><section class="tracking-section"><h3 class="card-title">Work tracking</h3><div class="form-row"><div class="field"><label>Planning status</label><select id="tracking-planning" ${edit && !t.archived ? '' : 'disabled'}>${option(['Backlog', 'Planned', 'Active', ...(t.pm_stage === 'Completed' ? ['Completed'] : [])], t.planning_status)}</select></div><div class="field"><label>Follow-up date</label><input autocomplete="off" id="tracking-follow-up" type="date" value="${e(t.follow_up_date)}" ${edit && !t.archived ? '' : 'disabled'}></div></div><div class="field"><label>Blocked / waiting reason</label><input autocomplete="off" id="tracking-blocked" value="${e(t.blocked_reason)}" ${edit && !t.archived ? '' : 'disabled'}></div>${edit && !t.archived ? '<button class="btn" data-save-tracking>Save</button>' : ''}</section><section class="task-evidence"><div class="evidence-head"><h3>Task images & files</h3>${writable ? '<input autocomplete="off" type="file" id="task-files" multiple hidden>' : ''}</div><div class="screenshot-grid">${
+  $('#detail-content').innerHTML = [
+    `<div class="panel-header"><span class="panel-kicker">PM Task ${t.archived ? badge('Archived') : ''}</span><button class="close" data-close="detail" aria-label="Close task">×`,
+    `</button></div><div class="panel-body task-focus">${taskHeading(d)}${instructionFor('pm-task')}${pmWorkflowCard(d, writable)}<section class="pm-design-card">`,
+    `<div class="pm-workflow-head"><h3 class="card-title">Requirement & design</h3>${edit && !t.archived ? '<button class="btn tiny" data-edit-pm>Edit PM task</button>' : ''}`,
+    `</div><span class="pm-category">${e(t.work_category)}</span><h4>Requirement / idea</h4><p class="work-notes">${e(t.description) || ui('Add the requirement, problem and intended outcome.')}`,
+    `</p><h4>Design / details</h4><p class="work-notes">${e(t.pm_solution) || ui('Record the proposed design and acceptance details before Handoff.')}`,
+    `</p></section><section class="tracking-section"><h3 class="card-title">Work tracking</h3><div class="form-row"><div class="field"><label>Planning status`,
+    `</label><select id="tracking-planning" ${edit && !t.archived ? '' : 'disabled'}>${option(['Backlog', 'Planned', 'Active', ...(t.pm_stage === 'Completed' ? ['Completed'] : [])], t.planning_status)}`,
+    `</select></div><div class="field"><label>Follow-up date</label><input autocomplete="off" id="tracking-follow-up" type="date" value="${e(t.follow_up_date)}" ${edit && !t.archived ? '' : 'disabled'}>`,
+    `</div></div><div class="field"><label>Blocked / waiting reason</label><input autocomplete="off" id="tracking-blocked" value="${e(t.blocked_reason)}" ${edit && !t.archived ? '' : 'disabled'}>`,
+    `</div>${edit && !t.archived ? '<button class="btn" data-save-tracking>Save</button>' : ''}</section><section class="task-evidence">`,
+    `<div class="evidence-head"><h3>Task images & files</h3>${writable ? '<input autocomplete="off" type="file" id="task-files" multiple hidden>' : ''}`,
+    `</div><div class="screenshot-grid">${
       attachmentTiles(
         d.attachments.filter((f) => !f.activity_id && !f.comment_id),
         writable,
       ) || ui('No images added yet.')
-    }</div>${writable ? `<div class="task-drop-zone paste-target" tabindex="0" role="group" aria-label="Attachment paste area" id="task-drop-zone"><span class="paste-idle">${ui('Click here, then press ⌘V / Ctrl+V to paste an image')}</span><span class="paste-ready" aria-live="polite">${ui('Ready — press ⌘V / Ctrl+V to paste an image here')}</span><span class="paste-drop-hint">${ui('Or drop images or files here')}</span><button type="button" class="btn paste-choose" data-choose-files>${ui('Choose files')}</button></div>` : ''}</section>${record ? `<section class="tracking-section"><h3 class="card-title">Add activity</h3><div class="field"><label>Work notes</label><textarea autocomplete="off" id="activity-notes"></textarea></div><input autocomplete="off" id="activity-result" type="hidden" value=""><select data-key="activity-action" hidden><option value="Other">Other</option></select><select id="activity-env" hidden><option value="${e(t.current_environment)}">${e(t.current_environment)}</option></select><div class="form-row"><div class="field"><label>Work date</label><input autocomplete="off" id="activity-date" type="date" value="${state.day}"></div><div class="field"><label>Work role</label><select id="activity-role">${option([...new Set([...(state.user.groups || []).filter((g) => g !== 'Management'), ...(canManage() ? ['PM', 'Engineering', 'QA'] : [])])], state.user.email === t.pm_owner ? 'PM' : canDev() ? 'Engineering' : 'QA')}</select></div></div>${evidencePicker('activity-files', 'activity', 'Attachments (optional)')}<button class="btn primary" id="add-activity">Save activity</button></section>` : ''}<details class="task-secondary"><summary>Activity timeline</summary>${sharedActivityTimeline(d, writable)}</details><details class="task-secondary"><summary>Handoff & design history</summary>${(d.pm_handoffs || []).map((h) => `<div class="timeline-item"><strong>${e(h.from_stage)} → ${e(h.to_stage)}</strong><p class="muted-note">${e(who(h.actor_email))} · ${e(timeFmt(h.recorded_at))}</p><p class="work-notes">${e(h.notes)}</p>${h.action === 'save' ? `<details><summary>Design version</summary><p class="work-notes">${e(h.solution)}</p></details>` : ''}</div>`).join('') || ui('No handoffs yet.')}</details><details class="task-secondary" id="task-discussion"><summary>Discussion</summary>${d.comments
+    }`,
+    `</div>${
+      writable
+        ? [
+            `<div class="task-drop-zone paste-target" tabindex="0" role="group" aria-label="Attachment paste area" id="task-drop-zone"><span class="paste-idle">${ui('Click here, then press ⌘V / Ctrl+V to paste an image')}`,
+            `</span><span class="paste-ready" aria-live="polite">${ui('Ready — press ⌘V / Ctrl+V to paste an image here')}</span><span class="paste-drop-hint">${ui('Or drop images or files here')}`,
+            `</span><button type="button" class="btn paste-choose" data-choose-files>${ui('Choose files')}</button></div>`,
+          ].join('')
+        : ''
+    }`,
+    `</section>${
+      record
+        ? [
+            `<section class="tracking-section"><h3 class="card-title">Add activity</h3><div class="field"><label>Work notes</label><textarea autocomplete="off" id="activity-notes">`,
+            `</textarea></div><input autocomplete="off" id="activity-result" type="hidden" value=""><select data-key="activity-action" hidden><option value="Other">Other`,
+            `</option></select><select id="activity-env" hidden><option value="${e(t.current_environment)}">${e(t.current_environment)}</option>`,
+            `</select><div class="form-row"><div class="field"><label>Work date</label><input autocomplete="off" id="activity-date" type="date" value="${state.day}">`,
+            `</div><div class="field"><label>Work role</label><select id="activity-role">${option([...new Set([...(state.user.groups || []).filter((g) => g !== 'Management'), ...(canManage() ? ['PM', 'Engineering', 'QA'] : [])])], state.user.email === t.pm_owner ? 'PM' : canDev() ? 'Engineering' : 'QA')}`,
+            `</select></div></div>${evidencePicker('activity-files', 'activity', 'Attachments (optional)')}<button class="btn primary" id="add-activity">Save activity`,
+            `</button></section>`,
+          ].join('')
+        : ''
+    }`,
+    `<details class="task-secondary"><summary>Activity timeline</summary>${sharedActivityTimeline(d, writable)}</details><details class="task-secondary">`,
+    `<summary>Handoff & design history</summary>${
+      (d.pm_handoffs || [])
+        .map((h) =>
+          [
+            `<div class="timeline-item"><strong>${e(h.from_stage)} → ${e(h.to_stage)}</strong><p class="muted-note">${e(who(h.actor_email))} · ${e(timeFmt(h.recorded_at))}`,
+            `</p><p class="work-notes">${e(h.notes)}</p>${h.action === 'save' ? `<details><summary>Design version</summary><p class="work-notes">${e(h.solution)}</p></details>` : ''}`,
+            `</div>`,
+          ].join(''),
+        )
+        .join('') || ui('No handoffs yet.')
+    }`,
+    `</details><details class="task-secondary" id="task-discussion"><summary>Discussion</summary>${d.comments
       .map(
         (c) =>
           `<div class="comment-box"><strong>${e(who(c.actor_email))}</strong>${commentReplyLink(c, d)}<p class="work-notes">${e(c.body)}</p>${attachmentTiles(
@@ -5205,19 +6430,82 @@ function renderPmDetail(d) {
             writable,
           )}${writable ? `<button class="account-link" data-reply-comment="${e(c.id)}">Reply</button>` : ''}</div>`,
       )
-      .join(
-        '',
-      )}${discussionActionControls(d)}${writable ? `<div id="discussion-compose-anchor"><div class="reply" id="comment-composer"><div id="comment-reply-context" hidden></div><textarea autocomplete="off" id="comment-body"></textarea>${discussionRecipientPicker()}${evidencePicker('comment-files', 'comment', 'Images for this comment')}<button class="btn" id="add-comment">Post comment</button></div></div>` : ''}</details>${related.length ? `<details class="task-secondary"><summary>Related Engineering work</summary>${related.map((l) => `<p><button class="account-link" data-open="${e(l.engineering_task_id)}">${e(state.tasks.find((x) => x.id === l.engineering_task_id)?.title || 'Engineering task')}</button></p>`).join('')}</details>` : ''}${edit ? `<section class="task-secondary task-manage" aria-label="Task actions"><div class="task-action-options"><button class="btn" id="${t.archived ? 'restore-task' : 'archive-task'}">${t.archived ? 'Restore task' : 'Archive task'}</button>${!t.archived ? '<button class="btn danger-link" id="remove-task">Delete task</button>' : ''}</div><p class="muted-note">${ui('Archive preserves history and can be restored. Tasks with shared work or released-version history are archived when removed.')}</p></section>` : ''}</div>`;
+      .join('')}${discussionActionControls(d)}${
+      writable
+        ? [
+            `<div id="discussion-compose-anchor"><div class="reply" id="comment-composer"><div id="comment-reply-context" hidden></div><textarea autocomplete="off" id="comment-body">`,
+            `</textarea>${discussionRecipientPicker()}${evidencePicker('comment-files', 'comment', 'Images for this comment')}<button class="btn" id="add-comment">Post comment`,
+            `</button></div></div>`,
+          ].join('')
+        : ''
+    }`,
+    [
+      `</details>${
+        related.length
+          ? [
+              `<details class="task-secondary"><summary>Related Engineering work</summary>${related.map((l) => `<p><button class="account-link" data-open="${e(l.engineering_task_id)}">${e(state.tasks.find((x) => x.id === l.engineering_task_id)?.title || 'Engineering task')}</button></p>`).join('')}`,
+              `</details>`,
+            ].join('')
+          : ''
+      }`,
+      `${
+        edit
+          ? [
+              [
+                `<section class="task-secondary task-manage" aria-label="Task actions"><div class="task-action-options">`,
+                `<button class="btn" id="${t.archived ? 'restore-task' : 'archive-task'}">${t.archived ? 'Restore task' : 'Archive task'}`,
+              ].join(''),
+              [
+                `</button>${!t.archived ? '<button class="btn danger-link" id="remove-task">Delete task</button>' : ''}`,
+                `</div><p class="muted-note">${ui('Archive preserves history and can be restored. Tasks with shared work or released-version history are archived when removed.')}`,
+              ].join(''),
+              `</p></section>`,
+            ].join('')
+          : ''
+      }`,
+    ].join(''),
+    `</div>`,
+  ].join('');
   captureTaskDraftBaseline();
   syncWorkflowStage();
   updateProfileAvatars();
   if (state.replyTo) startCommentReply(state.replyTo, false);
 }
+function pmEditorGuidance(stage) {
+  if (stage === 'Needs Details') {
+    return 'Add the requested details here. Saving keeps the task with PM until you resubmit Handoff.';
+  }
+  if (stage === 'Design Ready') {
+    return 'Changes to the requirement or design return this task to Draft. Save the changes, then review and mark the updated design ready again.';
+  }
+  if (stage === 'Draft') {
+    return 'Save your draft as you work. When the design is finished, use Mark design ready in PM workflow.';
+  }
+  return 'Updates are saved with this task. Use the current workflow action to continue.';
+}
 function editPmTask(focusDesign = false) {
   const t = state.detailData.task;
   if (!pmCanEdit(t) || t.archived) return;
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>Edit PM task</h2><button class="close" data-close="modal">×</button></div><p class="pm-editor-guidance">${ui(t.pm_stage === 'Needs Details' ? 'Add the requested details here. Saving keeps the task with PM until you resubmit Handoff.' : t.pm_stage === 'Design Ready' ? 'Changes to the requirement or design return this task to Draft. Save the changes, then review and mark the updated design ready again.' : t.pm_stage === 'Draft' ? 'Save your draft as you work. When the design is finished, use Mark design ready in PM workflow.' : 'Updates are saved with this task. Use the current workflow action to continue.')}</p><div class="field"><label for="pm-edit-title">Title</label><input autocomplete="off" id="pm-edit-title" maxlength="160" value="${e(t.title)}"></div><div class="form-row"><div class="field"><label for="pm-edit-owner">PM owner</label><select id="pm-edit-owner">${workflowMemberOptions('PM', t.pm_owner || t.assignee)}</select></div><div class="field"><label for="pm-edit-category">PM work category</label><select id="pm-edit-category">${option(pmCategories, t.work_category)}</select></div></div><div class="field"><label for="pm-edit-requirement">Requirement / idea</label><textarea autocomplete="off" id="pm-edit-requirement">${e(t.description)}</textarea></div><div class="field"><label for="pm-edit-solution">Design / details</label><textarea autocomplete="off" id="pm-edit-solution" class="pm-design-input" placeholder="${e(tr('Describe the proposed solution, key behavior and acceptance details.'))}" data-ui-placeholder="Describe the proposed solution, key behavior and acceptance details.">${e(t.pm_solution)}</textarea></div><p id="pm-edit-error" role="alert"></p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="pm-save-design">${t.pm_stage === 'Draft' ? 'Save draft' : t.pm_stage === 'Needs Details' ? 'Save details' : 'Save changes'}</button></div>`;
+  $('#modal-content').innerHTML = [
+    [
+      `<div class="modal-head"><h2>Edit PM task</h2><button class="close" data-close="modal">×</button>`,
+      `</div><p class="pm-editor-guidance">${ui(pmEditorGuidance(t.pm_stage))}`,
+    ].join(''),
+    `</p><div class="field"><label for="pm-edit-title">Title</label><input autocomplete="off" id="pm-edit-title" maxlength="160" value="${e(t.title)}">`,
+    `</div><div class="form-row"><div class="field"><label for="pm-edit-owner">PM owner</label><select id="pm-edit-owner">${workflowMemberOptions('PM', t.pm_owner || t.assignee)}`,
+    `</select></div><div class="field"><label for="pm-edit-category">PM work category</label><select id="pm-edit-category">${option(pmCategories, t.work_category)}`,
+    `</select></div></div><div class="field"><label for="pm-edit-requirement">Requirement / idea</label><textarea autocomplete="off" id="pm-edit-requirement">${e(t.description)}`,
+    [
+      `</textarea></div><div class="field"><label for="pm-edit-solution">Design / details</label><textarea autocomplete="off" id="pm-edit-solution" class="pm-design-input" `,
+      `placeholder="${e(tr('Describe the proposed solution, key behavior and acceptance details.'))}" `,
+    ].join(''),
+    `data-ui-placeholder="Describe the proposed solution, key behavior and acceptance details.">${e(t.pm_solution)}</textarea></div><p id="pm-edit-error" role="alert">`,
+    [
+      `</p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="pm-save-design">`,
+      `${t.pm_stage === 'Draft' ? 'Save draft' : t.pm_stage === 'Needs Details' ? 'Save details' : 'Save changes'}`,
+    ].join(''),
+    `</button></div>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#pm-save-design').onclick = () =>
     busy(async () => {
@@ -5293,11 +6581,29 @@ function confirmPmAction(action) {
     };
   const review =
     action === 'design-ready'
-      ? `<section class="pm-design-review"><div class="pm-review-label">Requirement / idea</div><p class="work-notes">${e(t.description || t.title)}</p><div class="pm-review-label">Design / details</div><p class="work-notes">${e(t.pm_solution)}</p><div class="pm-review-files">${ui('{count} reference files attached.', { count: files.length })}</div></section><p class="pm-review-prompt">${ui('Check that the scope, key behavior and acceptance details are clear enough for the engineer to review.')}</p><div class="pm-confirm-next"><strong>Design Ready</strong><span aria-hidden="true">→</span><span>${ui('Choose an engineer & submit Handoff')}</span></div>`
+      ? [
+          `<section class="pm-design-review"><div class="pm-review-label">Requirement / idea</div><p class="work-notes">${e(t.description || t.title)}`,
+          `</p><div class="pm-review-label">Design / details</div><p class="work-notes">${e(t.pm_solution)}</p><div class="pm-review-files">${ui('{count} reference files attached.', { count: files.length })}`,
+          `</div></section><p class="pm-review-prompt">${ui('Check that the scope, key behavior and acceptance details are clear enough for the engineer to review.')}`,
+          `</p><div class="pm-confirm-next"><strong>Design Ready</strong><span aria-hidden="true">→</span><span>${ui('Choose an engineer & submit Handoff')}`,
+          `</span></div>`,
+        ].join('')
       : '';
   trackingConfirmation(
     labels[action],
-    `<p>${ui(description[action])}</p>${review}${action === 'handoff' ? `<div class="field"><label for="pm-handoff-engineer">Engineer</label><select id="pm-handoff-engineer" ${t.pm_resume_stage === 'Implementation' ? 'disabled' : ''}>${workflowMemberOptions('Engineering', t.pm_engineer)}</select><p class="muted-note">${ui('This engineer receives the next action and reviews the requirement before implementation.')}</p></div><div class="pm-confirm-next"><strong>Engineer Review</strong><span aria-hidden="true">→</span><span>${ui('Continue in the ordinary Engineering Next Step')}</span></div>` : ''}${['handoff', 'request-details'].includes(action) ? `<div class="field"><label for="pm-handoff-notes">${action === 'request-details' ? 'Details needed' : 'Handoff notes (optional)'}</label><textarea autocomplete="off" id="pm-handoff-notes"></textarea></div>` : ''}`,
+    [
+      `<p>${ui(description[action])}</p>${review}${
+        action === 'handoff'
+          ? [
+              `<div class="field"><label for="pm-handoff-engineer">Engineer</label><select id="pm-handoff-engineer" ${t.pm_resume_stage === 'Implementation' ? 'disabled' : ''}>${workflowMemberOptions('Engineering', t.pm_engineer)}`,
+              `</select><p class="muted-note">${ui('This engineer receives the next action and reviews the requirement before implementation.')}</p>`,
+              `</div><div class="pm-confirm-next"><strong>Engineer Review</strong><span aria-hidden="true">→</span><span>${ui('Continue in the ordinary Engineering Next Step')}`,
+              `</span></div>`,
+            ].join('')
+          : ''
+      }`,
+      `${['handoff', 'request-details'].includes(action) ? `<div class="field"><label for="pm-handoff-notes">${action === 'request-details' ? 'Details needed' : 'Handoff notes (optional)'}</label><textarea autocomplete="off" id="pm-handoff-notes"></textarea></div>` : ''}`,
+    ].join(''),
     () =>
       api('/tasks/' + t.id + '/pm-workflow', {
         method: 'POST',
@@ -5337,11 +6643,41 @@ function renderSimpleDetail(d) {
   state.detailData = d;
   const t = d.task,
     writable = canWrite() && !t.archived;
-  $('#detail-content').innerHTML =
-    `<div class="panel-header"><span class="panel-kicker">${e(t.work_kind)}</span><button class="close" data-close="detail">×</button></div><div class="panel-body task-focus">${taskHeading(d)}${instructionFor('simple-work')}<p>${e(who(t.assignee))} · ${badge(t.work_status)} · ${badge(t.planning_status)}</p><p class="work-notes">${e(t.description)}</p>${trackingOverview(d, writable)}${writable ? `<section class="tracking-section"><h3 class="card-title">Add activity</h3><div class="field"><label>Work notes</label><textarea autocomplete="off" id="activity-notes"></textarea></div><input autocomplete="off" id="activity-result" type="hidden" value=""><select data-key="activity-action" hidden><option value="Other">Other</option></select><select id="activity-env" hidden><option value="—">—</option></select><div class="form-row"><div class="field"><label>Work date</label><input autocomplete="off" id="activity-date" type="date" value="${state.day}"></div><div class="field"><label>Work role</label><select id="activity-role">${option(t.work_kind === 'PM Task' ? ['PM'] : ['Other', ...(state.user.groups || []).filter((g) => g !== 'Management')], t.work_kind === 'PM Task' ? 'PM' : 'Other')}</select></div></div>${evidencePicker('activity-files', 'activity', 'Attachments (optional)')}<button class="btn primary" id="add-activity">Save activity</button></section>` : ''}<details class="task-secondary"><summary>Activity timeline</summary>${sharedActivityTimeline(d, writable)}</details><section class="tracking-section"><h3 class="card-title">Task attachments</h3>${attachmentTiles(
+  $('#detail-content').innerHTML = [
+    `<div class="panel-header"><span class="panel-kicker">${e(t.work_kind)}</span><button class="close" data-close="detail">×</button></div>`,
+    `<div class="panel-body task-focus">${taskHeading(d)}${instructionFor('simple-work')}<p>${e(who(t.assignee))} · ${badge(t.work_status)} · ${badge(t.planning_status)}`,
+    `</p><p class="work-notes">${e(t.description)}</p>${trackingOverview(d, writable)}${
+      writable
+        ? [
+            `<section class="tracking-section"><h3 class="card-title">Add activity</h3><div class="field"><label>Work notes</label><textarea autocomplete="off" id="activity-notes">`,
+            `</textarea></div><input autocomplete="off" id="activity-result" type="hidden" value=""><select data-key="activity-action" hidden><option value="Other">Other`,
+            `</option></select><select id="activity-env" hidden><option value="—">—</option></select><div class="form-row"><div class="field"><label>Work date`,
+            `</label><input autocomplete="off" id="activity-date" type="date" value="${state.day}"></div><div class="field"><label>Work role</label>`,
+            `<select id="activity-role">${option(t.work_kind === 'PM Task' ? ['PM'] : ['Other', ...(state.user.groups || []).filter((g) => g !== 'Management')], t.work_kind === 'PM Task' ? 'PM' : 'Other')}`,
+            `</select></div></div>${evidencePicker('activity-files', 'activity', 'Attachments (optional)')}<button class="btn primary" id="add-activity">Save activity`,
+            `</button></section>`,
+          ].join('')
+        : ''
+    }`,
+    `<details class="task-secondary"><summary>Activity timeline</summary>${sharedActivityTimeline(d, writable)}</details><section class="tracking-section">`,
+    `<h3 class="card-title">Task attachments</h3>${attachmentTiles(
       d.attachments.filter((f) => !f.activity_id && !f.comment_id),
       writable,
-    )}</section><details class="task-secondary" id="task-discussion"><summary>Discussion</summary>${d.comments.map((c) => `<div class="comment-box"><strong>${e(who(c.actor_email))}</strong>${commentReplyLink(c, d)}<p>${e(c.body)}</p>${writable ? `<button class="account-link" data-reply-comment="${e(c.id)}">Reply</button>` : ''}</div>`).join('')}${discussionActionControls(d)}${writable ? `<div id="discussion-compose-anchor"><div class="reply" id="comment-composer"><div id="comment-reply-context" hidden></div><textarea autocomplete="off" id="comment-body"></textarea>${discussionRecipientPicker()}${evidencePicker('comment-files', 'comment', 'Attachments (optional)')}<button class="btn" id="add-comment">Post comment</button></div></div>` : ''}</details></div>`;
+    )}`,
+    [
+      `</section><details class="task-secondary" id="task-discussion"><summary>Discussion</summary>${d.comments.map((c) => `<div class="comment-box"><strong>${e(who(c.actor_email))}</strong>${commentReplyLink(c, d)}<p>${e(c.body)}</p>${writable ? `<button class="account-link" data-reply-comment="${e(c.id)}">Reply</button>` : ''}</div>`).join('')}`,
+      `${discussionActionControls(d)}${
+        writable
+          ? [
+              `<div id="discussion-compose-anchor"><div class="reply" id="comment-composer"><div id="comment-reply-context" hidden></div><textarea autocomplete="off" id="comment-body">`,
+              `</textarea>${discussionRecipientPicker()}${evidencePicker('comment-files', 'comment', 'Attachments (optional)')}<button class="btn" id="add-comment">Post comment`,
+              `</button></div></div>`,
+            ].join('')
+          : ''
+      }`,
+    ].join(''),
+    `</details></div>`,
+  ].join('');
   updateProfileAvatars();
 }
 function dashboardWaitingStep(t) {
@@ -5390,7 +6726,14 @@ function dashboardQueueRow(
   { owner = '', preview = '', meta = '', label = '', tone = 'gray', extraStatus = '' } = {},
 ) {
   const tid = t.task_id || t.id;
-  return `<div role="listitem"><button type="button" class="dashboard-queue-row" data-open="${e(tid)}" aria-label="Open ${e(t.title)}"><span class="queue-task"><span class="queue-title">${e(t.title)}</span>${preview ? `<span class="queue-preview">${e(preview)}</span>` : meta ? `<span class="queue-meta">${e(meta)}</span>` : ''}</span><span class="queue-owner" title="${e(who(owner))}">${owner ? avatarHtml(owner, 'queue-avatar') : ''}<span class="queue-owner-name">${e(owner ? who(owner) : 'Unassigned')}</span></span><span class="queue-status"><span class="badge ${e(tone)}">${e(label)}</span>${extraStatus ? badge(extraStatus) : ''}</span><svg class="queue-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg></button></div>`;
+  return [
+    `<div role="listitem"><button type="button" class="dashboard-queue-row" data-open="${e(tid)}" aria-label="Open ${e(t.title)}"><span class="queue-task">`,
+    `<span class="queue-title">${e(t.title)}</span>${preview ? `<span class="queue-preview">${e(preview)}</span>` : meta ? `<span class="queue-meta">${e(meta)}</span>` : ''}`,
+    `</span><span class="queue-owner" title="${e(who(owner))}">${owner ? avatarHtml(owner, 'queue-avatar') : ''}<span class="queue-owner-name">${e(owner ? who(owner) : 'Unassigned')}`,
+    `</span></span><span class="queue-status"><span class="badge ${e(tone)}">${e(label)}</span>${extraStatus ? badge(extraStatus) : ''}</span>`,
+    `<svg class="queue-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="m6 4 4 4-4 4"/>`,
+    `</svg></button></div>`,
+  ].join('');
 }
 function dashboardQueue(
   title,
@@ -5398,7 +6741,11 @@ function dashboardQueue(
   render,
   { actionLabel = 'Next step', emptyText = 'No items.' } = {},
 ) {
-  return `<section class="dashboard-queue" aria-label="${e(title)}"><div class="queue-heading"><h2>${e(title)}</h2><span class="queue-count" aria-label="${items.length} items">${items.length}</span></div>${items.length ? `<div class="queue-column-head" aria-hidden="true"><span>Task</span><span>Owner</span><span>${e(actionLabel)}</span><span></span></div><div class="queue-rows" role="list">${items.map(render).join('')}</div>` : `<div class="queue-empty">${ui(emptyText)}</div>`}</section>`;
+  return [
+    `<section class="dashboard-queue" aria-label="${e(title)}"><div class="queue-heading"><h2>${e(title)}</h2><span class="queue-count" aria-label="${items.length} items">${items.length}`,
+    `</span></div>${items.length ? `<div class="queue-column-head" aria-hidden="true"><span>Task</span><span>Owner</span><span>${e(actionLabel)}</span><span></span></div><div class="queue-rows" role="list">${items.map(render).join('')}</div>` : `<div class="queue-empty">${ui(emptyText)}</div>`}`,
+    `</section>`,
+  ].join('');
 }
 function dashboardTracking(s) {
   const requests = [
@@ -5453,7 +6800,10 @@ function dashboardTracking(s) {
   return requestList + waiting + followUp + ``;
 }
 function workloadShell() {
-  return `<section class="workload-panel"><div class="workload-heading"><h2 class="card-title">Workload</h2><span>${e(dateFmt(state.day))}</span></div><div id="workload-results" aria-live="polite">${ui('Loading activity…')}</div></section>`;
+  return [
+    `<section class="workload-panel"><div class="workload-heading"><h2 class="card-title">Workload</h2><span>${e(dateFmt(state.day))}</span>`,
+    `</div><div id="workload-results" aria-live="polite">${ui('Loading activity…')}</div></section>`,
+  ].join('');
 }
 function workloadModel(data) {
   const groups = new Map();
@@ -5507,7 +6857,31 @@ async function loadWorkload() {
   if (!root.isConnected) return;
   const model = workloadModel(data),
     team = isBoss();
-  root.innerHTML = `<div class="workload-summary"><div><strong>${model.activities}</strong><span>Activities</span></div><div><strong>${model.returns}</strong><span>QA returns</span></div></div>${model.rows.length ? `<div class="workload-columns" aria-hidden="true"><span>${team ? 'Person / Work' : 'Work'}</span><span>Activities</span><span>QA returns</span></div><div class="workload-list" role="list">${model.rows.map((r) => `<div class="workload-row" role="listitem"><div class="workload-work">${team ? avatarHtml(r.email) : ''}<div>${team ? `<span class="workload-person">${e(who(r.email))}</span>` : ''}<strong>${e(r.label)}</strong><span class="workload-categories" title="${e(r.categories.join(' · '))}">${e(r.categories.join(' · '))}</span></div></div><span class="workload-value" aria-label="${r.activities} activities">${r.activities}</span><span class="workload-value ${r.returns ? 'has-returns' : ''}" aria-label="${r.returns} QA returns">${r.returns || '—'}</span></div>`).join('')}</div>` : `<p class="workload-empty">${ui('No work recorded for this date.')}</p>`}`;
+  root.innerHTML = [
+    `<div class="workload-summary"><div><strong>${model.activities}</strong><span>Activities</span></div><div><strong>${model.returns}</strong>`,
+    `<span>QA returns</span></div></div>${
+      model.rows.length
+        ? [
+            `<div class="workload-columns" aria-hidden="true"><span>${team ? 'Person / Work' : 'Work'}</span><span>Activities</span><span>QA returns`,
+            `</span></div><div class="workload-list" role="list">${model.rows
+              .map((r) =>
+                [
+                  `<div class="workload-row" role="listitem"><div class="workload-work">${team ? avatarHtml(r.email) : ''}<div>${team ? `<span class="workload-person">${e(who(r.email))}</span>` : ''}`,
+                  `<strong>${e(r.label)}</strong><span class="workload-categories" title="${e(r.categories.join(' · '))}">${e(r.categories.join(' · '))}`,
+                  [
+                    `</span></div></div><span class="workload-value" aria-label="${r.activities} activities">${r.activities}`,
+                    `</span><span class="workload-value ${r.returns ? 'has-returns' : ''}" aria-label="${r.returns} QA returns">`,
+                    `${r.returns || '—'}`,
+                  ].join(''),
+                  `</span></div>`,
+                ].join(''),
+              )
+              .join('')}`,
+            `</div>`,
+          ].join('')
+        : `<p class="workload-empty">${ui('No work recorded for this date.')}</p>`
+    }`,
+  ].join('');
   updateProfileAvatars();
 }
 async function openDashboardActivity(tid, aid) {
@@ -5528,8 +6902,13 @@ async function openDashboardActivity(tid, aid) {
       (a.comment_id && f.comment_id === a.comment_id) ||
       (a.result === 'New request submitted' && !f.activity_id && !f.comment_id),
   );
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>Activity details</h2><button class="close" data-close="modal" aria-label="Close activity">×</button></div><h3 class="activity-detail-title">${e(d.task.title)}</h3><div class="activity-detail-meta">${avatarHtml(a.actor_email)}<span>${e(who(a.actor_email))}</span><span>${e(dateFmt(a.activity_date))}</span></div><div class="workspace-tag-row">${badge(a.action_type)}${a.result ? badge(a.result) : ''}</div><p class="activity-detail-notes">${e(a.notes)}</p>${attachmentTiles(files, false)}<div class="form-actions"><button class="btn" id="activity-open-task">Open task</button></div>`;
+  $('#modal-content').innerHTML = [
+    `<div class="modal-head"><h2>Activity details</h2><button class="close" data-close="modal" aria-label="Close activity">×</button></div>`,
+    `<h3 class="activity-detail-title">${e(d.task.title)}</h3><div class="activity-detail-meta">${avatarHtml(a.actor_email)}<span>${e(who(a.actor_email))}`,
+    `</span><span>${e(dateFmt(a.activity_date))}</span></div><div class="workspace-tag-row">${badge(a.action_type)}${a.result ? badge(a.result) : ''}`,
+    `</div><p class="activity-detail-notes">${e(a.notes)}</p>${attachmentTiles(files, false)}<div class="form-actions"><button class="btn" id="activity-open-task">Open task`,
+    `</button></div>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#activity-open-task').onclick = () => {
     closeModal();
@@ -5541,11 +6920,16 @@ async function editSharedActivity(aid) {
     a = d.activities.find((x) => x.id === aid);
   if (!a) return;
   pendingActivityFiles = [];
-  $('#modal-content').innerHTML =
-    `<div id="shared-activity-editor"><div class="modal-head"><h2>Edit activity</h2><button class="close" data-close="modal">×</button></div><div class="field"><label>Work notes</label><textarea autocomplete="off" id="edit-activity-notes">${e(a.notes)}</textarea></div><div class="form-row"><div class="field"><label>Work date</label><input autocomplete="off" type="date" id="edit-activity-date" value="${e(a.activity_date)}"></div></div>${attachmentTiles(
+  $('#modal-content').innerHTML = [
+    `<div id="shared-activity-editor"><div class="modal-head"><h2>Edit activity</h2><button class="close" data-close="modal">×</button></div>`,
+    `<div class="field"><label>Work notes</label><textarea autocomplete="off" id="edit-activity-notes">${e(a.notes)}</textarea></div><div class="form-row">`,
+    `<div class="field"><label>Work date</label><input autocomplete="off" type="date" id="edit-activity-date" value="${e(a.activity_date)}">`,
+    `</div></div>${attachmentTiles(
       d.attachments.filter((f) => f.activity_id === aid),
       true,
-    )}${evidencePicker('edit-activity-files', 'activity', 'Attachments (optional)')}<p id="activity-edit-error" role="alert"></p><button class="btn primary" id="save-activity-edit">Save changes</button></div>`;
+    )}${evidencePicker('edit-activity-files', 'activity', 'Attachments (optional)')}`,
+    `<p id="activity-edit-error" role="alert"></p><button class="btn primary" id="save-activity-edit">Save changes</button></div>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#edit-activity-files').onchange = (ev) => queueEvidence([...ev.target.files], 'activity');
   $('#save-activity-edit').onclick = () =>
@@ -5699,8 +7083,11 @@ document.addEventListener('click', (ev) => {
     });
 });
 function trackingConfirmation(title, body, action, options = {}) {
-  $('#modal-content').innerHTML =
-    `<div class="modal-head"><h2>${e(title)}</h2><button class="close" data-close="modal">×</button></div>${body}<p id="tracking-error" role="alert"></p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="confirm-tracking">${e(options.label || 'Confirm')}</button></div>`;
+  $('#modal-content').innerHTML = [
+    `<div class="modal-head"><h2>${e(title)}</h2><button class="close" data-close="modal">×</button></div>${body}<p id="tracking-error" role="alert">`,
+    `</p><div class="form-actions"><button class="btn" data-close="modal">Cancel</button><button class="btn primary" id="confirm-tracking">${e(options.label || 'Confirm')}`,
+    `</button></div>`,
+  ].join('');
   $('#modal-shade').classList.remove('hidden');
   $('#confirm-tracking').onclick = () => {
     const button = $('#confirm-tracking');

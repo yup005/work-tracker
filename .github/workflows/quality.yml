@@ -22,6 +22,7 @@ jobs:
       - run: npm test
       - run: node scripts/build.mjs
       - run: node --check dist/server/index.js
+      - run: node scripts/smoke-worker.mjs
       - name: Local HTTP smoke test
         shell: bash
         run: |
