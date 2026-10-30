@@ -265,7 +265,7 @@ test('Language asset loads before the app; controls start hidden and remain acce
   assert.match(html, /data-language="zh"/);
   assert.match(html, /data-language="en"/);
   assert.match(html, /aria-label="Display language"/);
-  assert.match(html, /id="language-switch" hidden/);
+  assert.match(html, /id="language-switch"[^>]*\bhidden\b/);
   assert.match(html, /<html lang="en"/);
   assert.match(build, /\['language.js','application\/javascript; charset=utf-8'\]/);
   assert.match(local, /'language.js'/);

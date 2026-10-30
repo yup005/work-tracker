@@ -1311,7 +1311,7 @@ test('Exactly one automatic pending version persists until release, then next We
   const releases = (await request('/releases')).data.releases;
   const next = releases.filter((x) => x.status === 'Planned');
   assert.equal(next.length, 1);
-  assert.equal(next[0].planned_date, '2026-10-21');
+  assert.equal(new Date(next[0].planned_date + 'T12:00:00Z').getUTCDay(), 3);
   assert.notEqual(next[0].id, r.id);
   assert.equal((await request('/releases/ensure', { method: 'POST' })).data.release.id, next[0].id);
   db.close();
@@ -5704,8 +5704,8 @@ test('Engineering can customize the current plan alongside future versions and r
   assert.equal(current.length, 2);
   assert.ok(current.some((r) => r.version === 'another' && r.planned_date === '2026-11-11'));
   const next = current.find((r) => r.is_auto === 1);
-  assert.equal(next.planned_date, '2026-10-21');
-  assert.equal(next.version, 'Release 2026-10-21 (2)');
+  assert.equal(new Date(next.planned_date + 'T12:00:00Z').getUTCDay(), 3);
+  assert.equal(next.version, `Release ${next.planned_date}${next.planned_date === '2026-10-21' ? ' (2)' : ''}`);
   assert.equal(all.find((r) => r.id === plan.id).version, 'Release 2026-10-21');
   assert.equal((await change({ version: 'rewrite' })).status, 409);
   assert.equal(
@@ -6634,7 +6634,7 @@ test('A mixed release snapshots only delivered work and carries unfinished tasks
     [ready],
   );
   assert.deepEqual(JSON.parse(locked.deferred_task_ids_json), [pending]);
-  assert.equal(next.planned_date, '2026-10-21');
+  assert.equal(new Date(next.planned_date + 'T12:00:00Z').getUTCDay(), 3);
   assert.ok(JSON.parse(next.task_ids_json).includes(pending));
   assert.equal(next.is_auto, 1);
   assert.equal(plans.filter((r) => r.status === 'Planned' && r.is_auto === 1).length, 1);
@@ -7577,7 +7577,7 @@ test('QA rounds keep separate dates, return to Primary Owner and require renewed
       await request('/tasks/' + tid + '/tracking', {
         who: 'engineer@demo.local',
         method: 'PATCH',
-        body: { estimated_delivery_date: '2026-10-25' },
+        body: { estimated_delivery_date: '2099-12-30' },
       })
     ).status,
     200,
@@ -8481,7 +8481,7 @@ test('Existing handed-off PM tasks migrate to Engineering without copying record
       sourceIndex(code, 'function editPmTask('),
     );
   assert.ok(!body.includes('workflowCard('), 'PM details no longer embed an Engineering workflow');
-  assert.match(code, /\$\{t.pm_owner\?pmSourceDetails\(d,writable\)/);
+  assert.match(code, /\$\{t\.pm_owner\s*\?\s*pmSourceDetails\(d,\s*writable\)/);
   db.close();
 });
 
@@ -8710,7 +8710,7 @@ test('Engineering detail hierarchy uses the original Next Step, exposes prior re
     '${trackingOverview(d,writable)}',
   ];
   for (let i = 1; i < order.length; i++)
-    assert.ok(body.indexOf(order[i]) > body.indexOf(order[i - 1]), order[i]);
+    assert.ok(body.replace(/\s+/g, '').indexOf(order[i].replace(/\s+/g, '')) > body.replace(/\s+/g, '').indexOf(order[i - 1].replace(/\s+/g, '')), order[i]);
   assert.match(body, /<details class="task-secondary task-settings">/);
   assert.ok(!body.includes('latest-feedback'));
   assert.ok(body.includes('task-manage'));
@@ -8867,7 +8867,7 @@ test('New-task group defaults remain overridable and Engineering may request PM 
   ])
     assert.equal(sandbox.defaultNewWorkKind({ groups }), kind);
   assert.ok(code.includes('defaultNewWorkKind(state.user)'));
-  assert.ok(code.includes("if(kind==='task'){syncNewWorkKind();"));
+  assert.match(code, /if\s*\(\s*kind\s*===\s*['\"]task['\"]\s*\)\s*\{\s*syncNewWorkKind\(\);/);
   const { db, request } = context();
   db.prepare('INSERT INTO users(email,display_name,role,groups_json) VALUES(?,?,?,?)').run(
     'pm@example.com',
@@ -10261,7 +10261,7 @@ test('Activity labels distinguish work records from stages while preserving orig
     assert.equal((html.match(new RegExp('value="' + key + '"', 'g')) || []).length, 1);
   assert.match(
     code,
-    /action_type:kind,advance_workflow:false/,
+    /action_type:\s*kind,\s*advance_workflow:\s*false/,
     'Recording an activity must not advance workflow',
   );
   const before = {

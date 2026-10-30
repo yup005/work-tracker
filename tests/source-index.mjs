@@ -8,7 +8,14 @@ export function sourceIndex(source, marker, fromIndex = 0) {
 
   const escapeRegex = (character) => character.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  const pattern = [...marker]
+  // Prettier adds parentheses to single-parameter arrow callbacks.
+  // Retain the legacy markers while accepting both arrow spellings.
+  const normalizedMarker = marker.replace(
+    /,\\s*([a-zA-Z_$][\\w$]*)\\s*=>/g,
+    ',($1)=>',
+  );
+
+  const pattern = [...normalizedMarker]
     .map((character) => {
       if (/\s/.test(character)) return '\\s*';
       if (character === "'" || character === '"') return '[\\x22\\x27]';
