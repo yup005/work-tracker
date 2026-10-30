@@ -5705,7 +5705,10 @@ test('Engineering can customize the current plan alongside future versions and r
   assert.ok(current.some((r) => r.version === 'another' && r.planned_date === '2026-11-11'));
   const next = current.find((r) => r.is_auto === 1);
   assert.equal(new Date(next.planned_date + 'T12:00:00Z').getUTCDay(), 3);
-  assert.equal(next.version, `Release ${next.planned_date}${next.planned_date === '2026-10-21' ? ' (2)' : ''}`);
+  assert.equal(
+    next.version,
+    `Release ${next.planned_date}${next.planned_date === '2026-10-21' ? ' (2)' : ''}`,
+  );
   assert.equal(all.find((r) => r.id === plan.id).version, 'Release 2026-10-21');
   assert.equal((await change({ version: 'rewrite' })).status, 409);
   assert.equal(
@@ -8710,7 +8713,11 @@ test('Engineering detail hierarchy uses the original Next Step, exposes prior re
     '${trackingOverview(d,writable)}',
   ];
   for (let i = 1; i < order.length; i++)
-    assert.ok(body.replace(/\s+/g, '').indexOf(order[i].replace(/\s+/g, '')) > body.replace(/\s+/g, '').indexOf(order[i - 1].replace(/\s+/g, '')), order[i]);
+    assert.ok(
+      body.replace(/\s+/g, '').indexOf(order[i].replace(/\s+/g, '')) >
+        body.replace(/\s+/g, '').indexOf(order[i - 1].replace(/\s+/g, '')),
+      order[i],
+    );
   assert.match(body, /<details class="task-secondary task-settings">/);
   assert.ok(!body.includes('latest-feedback'));
   assert.ok(body.includes('task-manage'));
