@@ -10,7 +10,7 @@ export function sourceIndex(source, marker, fromIndex = 0) {
 
   // Prettier adds parentheses to single-parameter arrow callbacks.
   // Retain the legacy markers while accepting both arrow spellings.
-  const normalizedMarker = marker.replace(/,\\s*([a-zA-Z_$][\\w$]*)\\s*=>/g, ',($1)=>');
+  const normalizedMarker = marker.replaceAll(',ev=>', ',(ev)=>');
 
   const pattern = [...normalizedMarker]
     .map((character) => {
