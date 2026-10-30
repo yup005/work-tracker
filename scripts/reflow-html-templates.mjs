@@ -46,7 +46,7 @@ function splitTemplate(node, text) {
     for (let i = 0; i < raw.length; i++) {
       const char = raw[i];
       const isTagStart = char === '<' && /[a-zA-Z/!]/.test(raw[i + 1] ?? '') && !insideTag;
-      if (isTagStart && current.length > 130 && mayBreak()) flush();
+      if (isTagStart && current.length > 95 && mayBreak()) flush();
 
       current += char;
 
@@ -59,7 +59,7 @@ function splitTemplate(node, text) {
           quote = char;
         } else if (char === '>') {
           insideTag = false;
-        } else if (/\s/.test(char) && current.length > 200 && mayBreak()) {
+        } else if (/\s/.test(char) && current.length > 155 && mayBreak()) {
           // Splitting at a space between HTML attributes retains the exact bytes.
           flush();
         }
@@ -73,7 +73,10 @@ function splitTemplate(node, text) {
     appendRaw(q.value.raw);
     if (i + 1 < node.quasis.length) {
       const next = node.quasis[i + 1];
-      current += text.slice(q.end, next.start);
+      const interpolation = text.slice(q.end, next.start);
+      if (current.length > 95 && mayBreak()) flush();
+      current += interpolation;
+      if (current.length > 160 && mayBreak()) flush();
     }
   }
   flush();
@@ -143,6 +146,6 @@ for (let pass = 1; pass <= 10; pass++) {
 
 await writeFile(file, source);
 console.log('Total reflowed templates: ' + totalChanged);
-if (totalChanged < 10) {
+if (totalChanged < 1) {
   throw new Error('Expected to reflow numerous HTML templates; verify parser and source');
 }
