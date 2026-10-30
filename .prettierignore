@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.local-files/
+coverage/
+public/favicon.svg
+**/*.sql
+.github/workflows/readability-formatter.yml
