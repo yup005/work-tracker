@@ -1,4 +1,4 @@
-name: One-time HTML template readability cleanup
+name: One-time refactor final formatting
 
 on:
   push:
@@ -22,8 +22,7 @@ jobs:
         with:
           node-version: '22.13.1'
       - run: npm ci --ignore-scripts
-      - run: node scripts/reflow-html-templates.mjs
-      - run: npx prettier --write public/app.js scripts/reflow-html-templates.mjs
+      - run: npm run format
       - run: npm run format:check
       - run: npm test
       - run: node scripts/build.mjs
@@ -33,8 +32,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/app.js scripts/reflow-html-templates.mjs
+          git add public/app.js scripts/build.mjs
           if ! git diff --cached --quiet; then
-            git commit -m "refactor: split dense HTML template literals into readable fragments"
+            git commit -m "style: format readable helpers and build pipeline"
             git push origin HEAD:refactor/readable-html-templates
           fi
