@@ -2036,6 +2036,49 @@ function renderEngineeringTaskEvidence(writable, fileHTML) {
     '</section>',
   ].join('');
 }
+function renderEngineeringTaskParent(task) {
+  if (!task.parent_task_id) return '';
+
+  const parentTask = state.tasks.find((item) => item.id === task.parent_task_id);
+
+  return `<p class="muted-note">Parent: <span class="title-cell" data-open="${e(task.parent_task_id)}">${e(parentTask?.title || 'Parent task')}</span></p>`;
+}
+
+function renderEngineeringTaskSettings(d, writable, needsDev, needsQa) {
+  const t = d.task;
+  return `<details class="task-secondary task-settings"><summary>Task settings <span class="summary-hint">Owners, collaborators & planning</span></summary><p class="muted-note">${ui('Use Next Step to record and advance work. These settings manage ownership, planning and follow-up reminders.')}</p>${trackingOverview(d, writable)}${completionDateRow(t, writable && canDev(), true)}<div class="status-focus"><div class="status-cell ${needsDev ? 'needs-change' : ''}"><span class="muted-note">Development stage</span><p>${badge(t.development_status)}</p></div><div class="status-cell ${needsQa ? 'needs-change' : ''}"><span class="muted-note">QA result</span><p>${badge(t.qa_status)}</p></div></div><div class="field current-environment">${inputSelect('Current environment', 'current_environment', t.current_environment, ['—', 'Local', 'PR', 'Stage', 'Production'], writable && (canQA() || canDev()))}<span class="muted-note">${ui('Follows development stage; you can override it.')}</span></div><div class="form-row task-responsibility"><div class="field"><label>Engineering owner</label><select class="task-field" data-key="assignee" ${writable && canQA() ? '' : 'disabled'}>${workflowMemberOptions('Engineering', t.assignee)}</select></div>${inputSelect('Priority', 'priority', t.priority, state.statuses.priorities, writable && canQA())}</div></details>`;
+}
+
+function renderEngineeringTaskInfo(d, writable, actions, defaultAction) {
+  const t = d.task;
+  return `<details class="task-secondary"><summary>Task details & PR</summary><div class="detail-fields">${inputText('Title', 'title', t.title, writable && canQA())}<div class="field"><label>Description</label><textarea autocomplete="off" class="task-field" data-key="description" ${writable && canQA() ? '' : 'disabled'}>${e(t.description)}</textarea></div>${categoryPicker(t.category || 'General', { key: 'category', enabled: writable && (canQA() || canDev()) })}${parentTaskSelect(t, writable)}${inputSelect('Type', 'type', t.type, [...new Set([...state.statuses.types, t.type])], writable && canQA())}${inputText('GitHub PR URL', 'github_pr_url', t.github_pr_url, writable && canDev())}</div>${writable && canDev() ? '<button class="btn" id="sync-pr">Sync PR</button>' : ''}${writable ? `<details class="task-log"><summary>Record other work (optional)</summary><p class="muted-note">${ui('Record extra work here without changing the task stage. Use Next Step to confirm Engineering or QA results.')}</p><div class="field"><label>What happened?</label><textarea autocomplete="off" id="activity-notes" placeholder="${e(tr('e.g. Checked the updated page. The buttons now work.'))}" data-ui-placeholder="e.g. Checked the updated page. The buttons now work."></textarea></div><div class="field"><label>Result / summary</label><input autocomplete="off" id="activity-result" placeholder="${e(tr('e.g. Checked and working'))}" data-ui-placeholder="e.g. Checked and working"></div><div class="form-row">${activityTypeSelect(actions, defaultAction)}<div class="field"><label>Work date</label><input autocomplete="off" id="activity-date" data-suggested="true" class="suggested-value" type="date" value="${state.day}"></div></div><div class="form-row"><div class="field"><label>Environment</label><select id="activity-env">${option(['—', 'Local', 'PR', 'Stage', 'Production'], t.current_environment)}</select></div><div class="field"><label>Work role</label><select id="activity-role">${option(t.work_kind === 'PM Task' ? ['PM'] : ['Other', ...(state.user.groups || []).filter((g) => g !== 'Management')], t.work_kind === 'PM Task' ? 'PM' : 'Other')}</select></div>${evidencePicker('activity-files', 'activity', 'Images for this activity')}</div><div class="form-actions"><button class="btn primary" id="add-activity">Save activity</button></div></details>` : ''}</details>`;
+}
+
+function renderEngineeringTaskTimeline(activity) {
+  
+  return `<details class="task-secondary"><summary>Activity timeline</summary><div class="timeline">${activity || empty('No history', 'Activities appear here.')}</div></details>`;
+}
+
+function renderEngineeringTaskDiscussion(d, writable) {
+  
+  return `<details class="task-secondary" id="task-discussion"><summary>Discussion</summary>${
+      d.comments
+        .map(
+          (c) =>
+            `<div class="comment-box"><div class="head">${e(who(c.actor_email))}<span>${timeFmt(c.created_at)}</span></div>${commentReplyLink(c, d)}<div class="text">${e(c.body)}</div>${attachmentTiles(
+              d.attachments.filter((a) => a.comment_id === c.id),
+              writable,
+            )}${writable ? `<button type="button" class="account-link comment-reply-button" data-reply-comment="${e(c.id)}">Reply</button>${linkedEvidencePicker('comment-file-' + c.id, 'comment', c.id, 'Add images or files to this comment')}` : ''}</div>`,
+        )
+        .join('') || `<p class="muted-note">${ui('No comments yet.')}</p>`
+    }${writable ? `${discussionActionControls(d)}<div id="discussion-compose-anchor"><div class="reply" id="comment-composer"><div id="comment-reply-context" class="comment-reply-context" hidden></div><textarea autocomplete="off" id="comment-body" placeholder="${e(tr('e.g. Should this change apply to all users?'))}" data-ui-placeholder="e.g. Should this change apply to all users?"></textarea>${discussionRecipientPicker()}${evidencePicker('comment-files', 'comment', 'Images for this comment')}<button class="btn" id="add-comment">Post comment</button></div></div>` : ''}</details>`;
+}
+
+function renderEngineeringTaskManagement(d, writable) {
+  const t = d.task;
+  return `${canManage() ? `<section class="task-secondary task-manage" aria-label="Task actions"><div class="task-action-options"><button class="btn" id="${t.archived ? 'restore-task' : 'archive-task'}">${t.archived ? 'Restore task' : 'Archive task'}</button>${!t.archived && d.removal_mode !== 'Archived' ? '<button class="btn danger-link" id="remove-task">Delete task</button>' : ''}</div><p class="muted-note">${ui('Archive preserves history and can be restored. Tasks with shared work or released-version history are archived when removed.')}</p></section>` : ''}${writable ? `<p class="muted-note">${ui('Field changes save after confirmation. Follow Next Step for the workflow. Record other work in Task details & PR when needed.')}</p>` : ''}</div>`;
+}
+
 function renderDetail(d) {
   state.trackingDirty = false;
   if (d.task.work_kind === 'PM Task') return renderPmDetail(d);
@@ -2070,18 +2113,23 @@ function renderDetail(d) {
     d.attachments.filter((a) => !a.activity_id && !a.comment_id),
     writable,
   );
-  $('#detail-content').innerHTML =
-    `${renderEngineeringTaskHeader(t)}${taskHeading(d)}${t.parent_task_id ? `<p class="muted-note">Parent: <span class="title-cell" data-open="${e(t.parent_task_id)}">${e(state.tasks.find((p) => p.id === t.parent_task_id)?.title || 'Parent task')}</span></p>` : ''}${renderEngineeringTaskDescription(t)}${renderEngineeringTaskEvidence(writable, fileHTML)}${workflowCard(d, writable)}${previousStageCard(d)}${pendingCommentsCard(d, writable)}${t.pm_owner ? pmSourceDetails(d, writable) : ''}${instructionFor('engineering-task')}<details class="task-secondary task-settings"><summary>Task settings <span class="summary-hint">Owners, collaborators & planning</span></summary><p class="muted-note">${ui('Use Next Step to record and advance work. These settings manage ownership, planning and follow-up reminders.')}</p>${trackingOverview(d, writable)}${completionDateRow(t, writable && canDev(), true)}<div class="status-focus"><div class="status-cell ${needsDev ? 'needs-change' : ''}"><span class="muted-note">Development stage</span><p>${badge(t.development_status)}</p></div><div class="status-cell ${needsQa ? 'needs-change' : ''}"><span class="muted-note">QA result</span><p>${badge(t.qa_status)}</p></div></div><div class="field current-environment">${inputSelect('Current environment', 'current_environment', t.current_environment, ['—', 'Local', 'PR', 'Stage', 'Production'], writable && (canQA() || canDev()))}<span class="muted-note">${ui('Follows development stage; you can override it.')}</span></div><div class="form-row task-responsibility"><div class="field"><label>Engineering owner</label><select class="task-field" data-key="assignee" ${writable && canQA() ? '' : 'disabled'}>${workflowMemberOptions('Engineering', t.assignee)}</select></div>${inputSelect('Priority', 'priority', t.priority, state.statuses.priorities, writable && canQA())}</div></details><details class="task-secondary"><summary>Task details & PR</summary><div class="detail-fields">${inputText('Title', 'title', t.title, writable && canQA())}<div class="field"><label>Description</label><textarea autocomplete="off" class="task-field" data-key="description" ${writable && canQA() ? '' : 'disabled'}>${e(t.description)}</textarea></div>${categoryPicker(t.category || 'General', { key: 'category', enabled: writable && (canQA() || canDev()) })}${parentTaskSelect(t, writable)}${inputSelect('Type', 'type', t.type, [...new Set([...state.statuses.types, t.type])], writable && canQA())}${inputText('GitHub PR URL', 'github_pr_url', t.github_pr_url, writable && canDev())}</div>${writable && canDev() ? '<button class="btn" id="sync-pr">Sync PR</button>' : ''}${writable ? `<details class="task-log"><summary>Record other work (optional)</summary><p class="muted-note">${ui('Record extra work here without changing the task stage. Use Next Step to confirm Engineering or QA results.')}</p><div class="field"><label>What happened?</label><textarea autocomplete="off" id="activity-notes" placeholder="${e(tr('e.g. Checked the updated page. The buttons now work.'))}" data-ui-placeholder="e.g. Checked the updated page. The buttons now work."></textarea></div><div class="field"><label>Result / summary</label><input autocomplete="off" id="activity-result" placeholder="${e(tr('e.g. Checked and working'))}" data-ui-placeholder="e.g. Checked and working"></div><div class="form-row">${activityTypeSelect(actions, defaultAction)}<div class="field"><label>Work date</label><input autocomplete="off" id="activity-date" data-suggested="true" class="suggested-value" type="date" value="${state.day}"></div></div><div class="form-row"><div class="field"><label>Environment</label><select id="activity-env">${option(['—', 'Local', 'PR', 'Stage', 'Production'], t.current_environment)}</select></div><div class="field"><label>Work role</label><select id="activity-role">${option(t.work_kind === 'PM Task' ? ['PM'] : ['Other', ...(state.user.groups || []).filter((g) => g !== 'Management')], t.work_kind === 'PM Task' ? 'PM' : 'Other')}</select></div>${evidencePicker('activity-files', 'activity', 'Images for this activity')}</div><div class="form-actions"><button class="btn primary" id="add-activity">Save activity</button></div></details>` : ''}</details><details class="task-secondary"><summary>Activity timeline</summary><div class="timeline">${activity || empty('No history', 'Activities appear here.')}</div></details><details class="task-secondary" id="task-discussion"><summary>Discussion</summary>${
-      d.comments
-        .map(
-          (c) =>
-            `<div class="comment-box"><div class="head">${e(who(c.actor_email))}<span>${timeFmt(c.created_at)}</span></div>${commentReplyLink(c, d)}<div class="text">${e(c.body)}</div>${attachmentTiles(
-              d.attachments.filter((a) => a.comment_id === c.id),
-              writable,
-            )}${writable ? `<button type="button" class="account-link comment-reply-button" data-reply-comment="${e(c.id)}">Reply</button>${linkedEvidencePicker('comment-file-' + c.id, 'comment', c.id, 'Add images or files to this comment')}` : ''}</div>`,
-        )
-        .join('') || `<p class="muted-note">${ui('No comments yet.')}</p>`
-    }${writable ? `${discussionActionControls(d)}<div id="discussion-compose-anchor"><div class="reply" id="comment-composer"><div id="comment-reply-context" class="comment-reply-context" hidden></div><textarea autocomplete="off" id="comment-body" placeholder="${e(tr('e.g. Should this change apply to all users?'))}" data-ui-placeholder="e.g. Should this change apply to all users?"></textarea>${discussionRecipientPicker()}${evidencePicker('comment-files', 'comment', 'Images for this comment')}<button class="btn" id="add-comment">Post comment</button></div></div>` : ''}</details>${canManage() ? `<section class="task-secondary task-manage" aria-label="Task actions"><div class="task-action-options"><button class="btn" id="${t.archived ? 'restore-task' : 'archive-task'}">${t.archived ? 'Restore task' : 'Archive task'}</button>${!t.archived && d.removal_mode !== 'Archived' ? '<button class="btn danger-link" id="remove-task">Delete task</button>' : ''}</div><p class="muted-note">${ui('Archive preserves history and can be restored. Tasks with shared work or released-version history are archived when removed.')}</p></section>` : ''}${writable ? `<p class="muted-note">${ui('Field changes save after confirmation. Follow Next Step for the workflow. Record other work in Task details & PR when needed.')}</p>` : ''}</div>`;
+  $('#detail-content').innerHTML = [
+    renderEngineeringTaskHeader(t),
+    taskHeading(d),
+    renderEngineeringTaskParent(t),
+    renderEngineeringTaskDescription(t),
+    renderEngineeringTaskEvidence(writable, fileHTML),
+    workflowCard(d, writable),
+    previousStageCard(d),
+    pendingCommentsCard(d, writable),
+    t.pm_owner ? pmSourceDetails(d, writable) : '',
+    instructionFor('engineering-task'),
+    renderEngineeringTaskSettings(d, writable, needsDev, needsQa),
+    renderEngineeringTaskInfo(d, writable, actions, defaultAction),
+    renderEngineeringTaskTimeline(activity),
+    renderEngineeringTaskDiscussion(d, writable),
+    renderEngineeringTaskManagement(d, writable),
+  ].join('');
   captureTaskDraftBaseline();
   syncWorkflowStage();
   syncWorkflowReview();

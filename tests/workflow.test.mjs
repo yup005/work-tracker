@@ -8709,8 +8709,8 @@ test('Engineering detail hierarchy uses the original Next Step, exposes prior re
     'renderEngineeringTaskEvidence(writable, fileHTML)',
     '${workflowCard(d,writable)}',
     '${previousStageCard(d)}',
-    'task-settings',
-    '${trackingOverview(d,writable)}',
+    'renderEngineeringTaskSettings(d, writable, needsDev, needsQa)',
+    'renderEngineeringTaskInfo(d, writable, actions, defaultAction)',
   ];
   for (let i = 1; i < order.length; i++)
     assert.ok(
@@ -8718,9 +8718,10 @@ test('Engineering detail hierarchy uses the original Next Step, exposes prior re
         body.replace(/\s+/g, '').indexOf(order[i - 1].replace(/\s+/g, '')),
       order[i],
     );
-  assert.match(body, /<details class="task-secondary task-settings">/);
+  assert.match(code, /<details class="task-secondary task-settings">/);
   assert.ok(!body.includes('latest-feedback'));
-  assert.ok(body.includes('task-manage'));
+  assert.ok(code.includes('task-manage'));
+  assert.ok(body.includes('renderEngineeringTaskManagement(d, writable)'));
   const sandbox = { document: { addEventListener() {}, querySelectorAll: () => [] }, console };
   vm.createContext(sandbox);
   vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
