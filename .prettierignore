@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.local-files/
+coverage/
+public/favicon.svg
+**/*.sql

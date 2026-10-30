@@ -8,7 +8,7 @@ Verify: system_backup_v85_manifest has 32 rows, every verified=1, row_count=snap
 
 For rollback, use a verified compatible application checkpoint. Number/reminder additions are additive; old primary keys, histories and fields remain compatible. Keep new registries and acknowledgement tables intact so issued IDs remain reserved. Never replay older migrations or reset data.
 
-Data recovery if corruption is observed: stop workspace writes first, take an additional current checkpoint, compare the affected old columns with system_backup_v85_<table>, and restore only verified affected fields through an infrastructure migration. Do not wholesale replace tables or roll back activity, QA or release history created after the checkpoint. Original DDL is in system_backup_v85_schema. Rehearse the exact recovery on a copy before production. Database-wide disaster recovery should use infrastructure-level restoration, never the permission-scoped Admin export.
+Data recovery if corruption is observed: stop workspace writes first, take an additional current checkpoint, compare the affected old columns with system*backup_v85*<table>, and restore only verified affected fields through an infrastructure migration. Do not wholesale replace tables or roll back activity, QA or release history created after the checkpoint. Original DDL is in system_backup_v85_schema. Rehearse the exact recovery on a copy before production. Database-wide disaster recovery should use infrastructure-level restoration, never the permission-scoped Admin export.
 
 Attachment/avatar objects and their object keys are untouched by this update. No object deletions or rewrites are part of migration or rollback. The database checkpoint preserves every original reference.
 

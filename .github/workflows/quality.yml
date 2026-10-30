@@ -1,0 +1,50 @@
+name: Code quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.1'
+      - run: npm ci --ignore-scripts
+      - run: npm run format:check
+      - run: npm test
+      - run: node scripts/build.mjs
+      - run: node --check dist/server/index.js
+      - name: Local HTTP smoke test
+        shell: bash
+        run: |
+          npm run dev > /tmp/work-tracker-preview.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          ready=0
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/ -o /tmp/work-tracker-page.html; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/work-tracker-preview.log
+            exit 1
+          fi
+
+          grep -q 'id="app"' /tmp/work-tracker-page.html
+          curl --fail --silent --show-error http://127.0.0.1:4173/app.js -o /tmp/work-tracker-app.js
+          grep -q 'renderEngineeringTaskHeader' /tmp/work-tracker-app.js
+          curl --fail --silent --show-error http://127.0.0.1:4173/api/me -o /tmp/work-tracker-me.json
+          grep -q '"user"' /tmp/work-tracker-me.json
