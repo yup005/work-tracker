@@ -16,7 +16,8 @@ const signals = (await readFile('task-signals.mjs', 'utf8')).replace(
   'function createTaskSignals',
 );
 const serverSource = await readFile('server.mjs', 'utf8');
-const signalsImport = /^import\s*\{\s*createTaskSignals\s*\}\s*from\s*['"]\.\/task-signals\.mjs['"];?\s*/m;
+const signalsImport =
+  /^import\s*\{\s*createTaskSignals\s*\}\s*from\s*['"]\.\/task-signals\.mjs['"];?\s*/m;
 
 if (!signalsImport.test(serverSource)) {
   throw new Error('Expected createTaskSignals import was not found in server.mjs');
