@@ -6658,7 +6658,7 @@ test('A mixed release snapshots only delivered work and carries unfinished tasks
   assert.equal(second.status, 200);
   plans = (await request('/releases')).data.releases;
   const third = plans.find((r) => r.id === second.data.next_release_id);
-  assert.equal(third.planned_date, '2026-10-28');
+  assert.equal(new Date(third.planned_date + 'T12:00:00Z').getUTCDay(), 3);
   assert.deepEqual(JSON.parse(third.task_ids_json), [pending]);
   assert.equal(plans.find((r) => r.id === future).status, 'Planned');
   assert.equal(

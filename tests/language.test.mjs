@@ -267,11 +267,11 @@ test('Language asset loads before the app; controls start hidden and remain acce
   assert.match(html, /aria-label="Display language"/);
   assert.match(html, /id="language-switch"[^>]*\bhidden\b/);
   assert.match(html, /<html lang="en"/);
-  assert.match(build, /\['language.js','application\/javascript; charset=utf-8'\]/);
+  assert.match(build, /\[\s*['\"]language\.js['\"]\s*,\s*['\"]application\/javascript; charset=utf-8['\"]\s*\]/);
   assert.match(local, /'language.js'/);
   assert.match(
     readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8'),
-    /\.language-switch button\{min-height:40px/,
+    /\.language-switch button\s*\{\s*min-height:\s*40px/,
   );
 });
 test('Rendered Next Step uses Chinese copy and English statuses without exposing QA before the Stage handoff', () => {
