@@ -6,8 +6,7 @@ export function sourceIndex(source, marker, fromIndex = 0) {
   const direct = source.indexOf(marker, fromIndex);
   if (direct !== -1) return direct;
 
-  const escapeRegex = (character) =>
-    character.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapeRegex = (character) => character.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   const pattern = [...marker]
     .map((character) => {

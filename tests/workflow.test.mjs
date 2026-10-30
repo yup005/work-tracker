@@ -1238,7 +1238,10 @@ test('Cards and List retain the same task identity, categories and sorting witho
     sandbox,
   );
   vm.runInContext(
-    code.slice(sourceIndex(code, 'const priorityRank='), sourceIndex(code, 'function renderDaily(')),
+    code.slice(
+      sourceIndex(code, 'const priorityRank='),
+      sourceIndex(code, 'function renderDaily('),
+    ),
     sandbox,
   );
   const task = {
@@ -3579,7 +3582,10 @@ test('Board next action states the required step alongside its owner', () => {
   };
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(sourceIndex(code, 'function boardNextAction('), sourceIndex(code, 'function renderBoard()')),
+    code.slice(
+      sourceIndex(code, 'function boardNextAction('),
+      sourceIndex(code, 'function renderBoard()'),
+    ),
     sandbox,
   );
   assert.equal(
@@ -3832,7 +3838,8 @@ test('Unified drop areas link files to the selected comment, activity or general
   vm.runInContext(
     code.slice(
       sourceIndex(code, 'function evidencePaste('),
-      sourceIndex(code, 
+      sourceIndex(
+        code,
         "document.addEventListener('change',ev=>{\n if(ev.target.matches('#detail-content .task-field'))",
       ),
     ),
@@ -4935,7 +4942,10 @@ test('Board stage tabs combine with search and existing filters, and Clear all p
   const sandbox = { state, e: (x) => String(x ?? ''), who: (x) => x };
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(sourceIndex(code, 'const boardFilterFields='), sourceIndex(code, 'function renderBoard(){')),
+    code.slice(
+      sourceIndex(code, 'const boardFilterFields='),
+      sourceIndex(code, 'function renderBoard(){'),
+    ),
     sandbox,
   );
   assert.deepEqual(
@@ -4984,7 +4994,10 @@ test('Version cards retain expandable planning controls and locked release snaps
   vm.createContext(sandbox);
   vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(
-    code.slice(sourceIndex(code, 'let releaseList='), sourceIndex(code, 'async function saveRelease(')),
+    code.slice(
+      sourceIndex(code, 'let releaseList='),
+      sourceIndex(code, 'async function saveRelease('),
+    ),
     sandbox,
   );
   const planned = {
@@ -5110,13 +5123,17 @@ test('Reference-style task cards show the current QA owner without changing the 
   vm.createContext(sandbox);
   vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(
-    code.slice(sourceIndex(code, 'function boardNextAction('), sourceIndex(code, 'const boardFilterFields=')),
+    code.slice(
+      sourceIndex(code, 'function boardNextAction('),
+      sourceIndex(code, 'const boardFilterFields='),
+    ),
     sandbox,
   );
   vm.runInContext(
     code.slice(
       sourceIndex(code, 'function boardPhaseBadge('),
-      sourceIndex(code, 
+      sourceIndex(
+        code,
         "document.addEventListener('click',ev=>{const button=ev.target.closest('[data-board-layout]')",
       ),
     ),
@@ -5189,7 +5206,10 @@ test('Board layout is in its heading and stage tabs do not add redundant filter 
   };
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(sourceIndex(code, 'const boardFilterFields='), sourceIndex(code, 'function boardPhaseBadge(')),
+    code.slice(
+      sourceIndex(code, 'const boardFilterFields='),
+      sourceIndex(code, 'function boardPhaseBadge('),
+    ),
     sandbox,
   );
   let html = sandbox.renderBoard();
@@ -5273,15 +5293,24 @@ test('Creating an Engineering task uploads references and retries only failed fi
   };
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(sourceIndex(code, 'let pendingNewTaskFiles='), sourceIndex(code, 'let editingOfficeId=')),
+    code.slice(
+      sourceIndex(code, 'let pendingNewTaskFiles='),
+      sourceIndex(code, 'let editingOfficeId='),
+    ),
     sandbox,
   );
   vm.runInContext(
-    code.slice(sourceIndex(code, 'function queueEvidence('), sourceIndex(code, 'function evidencePaste(')),
+    code.slice(
+      sourceIndex(code, 'function queueEvidence('),
+      sourceIndex(code, 'function evidencePaste('),
+    ),
     sandbox,
   );
   vm.runInContext(
-    code.slice(sourceIndex(code, 'async function saveModal('), sourceIndex(code, 'async function saveTask(')),
+    code.slice(
+      sourceIndex(code, 'async function saveModal('),
+      sourceIndex(code, 'async function saveTask('),
+    ),
     sandbox,
   );
   sandbox.files = [
@@ -5371,13 +5400,15 @@ test('New-task attachments route file selection, drop and paste to the draft bef
     },
     preventDefault: () => prevented++,
   });
-  const change = sourceIndex(code, 
+  const change = sourceIndex(
+    code,
     "document.addEventListener('change',ev=>{\n if(ev.target.matches('#detail-content .task-field'))",
   );
   vm.runInContext(
     code.slice(
       change,
-      sourceIndex(code, 
+      sourceIndex(
+        code,
         "document.addEventListener('click',ev=>{const b=ev.target.closest('[data-delete-attachment]')",
         change,
       ),
@@ -5444,7 +5475,10 @@ test('Daily Work keeps one lower project creation entry, including before the fi
   };
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(sourceIndex(code, 'function renderDaily('), sourceIndex(code, 'async function loadDaily(')),
+    code.slice(
+      sourceIndex(code, 'function renderDaily('),
+      sourceIndex(code, 'async function loadDaily('),
+    ),
     sandbox,
   );
   vm.runInContext(
@@ -6278,7 +6312,8 @@ test('My account Change password opens and submits the self-change form, while A
   vm.runInContext(
     code.slice(
       sourceIndex(code, 'function accountMenu(){'),
-      sourceIndex(code, 
+      sourceIndex(
+        code,
         "document.addEventListener('change',ev=>{if(ev.target.id==='account-avatar-file')",
       ),
     ),
@@ -6787,7 +6822,10 @@ test('Version task picker separates readiness, names future reservations and omi
   vm.createContext(sandbox);
   vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(
-    code.slice(sourceIndex(code, 'let releaseList='), sourceIndex(code, 'async function submitRelease(')),
+    code.slice(
+      sourceIndex(code, 'let releaseList='),
+      sourceIndex(code, 'async function submitRelease('),
+    ),
     sandbox,
   );
   vm.runInContext(
@@ -6837,7 +6875,8 @@ test('Actual release confirmation reviews delivered and deferred tasks before se
   vm.runInContext(
     code.slice(
       sourceIndex(code, 'let releaseList='),
-      sourceIndex(code, 
+      sourceIndex(
+        code,
         "document.addEventListener('click',ev=>{const button=ev.target.closest('[data-edit-user]')",
       ),
     ),
@@ -7059,13 +7098,17 @@ test('Legacy CRM default is omitted from task cards and new requests no longer i
   vm.createContext(sandbox);
   vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(
-    code.slice(sourceIndex(code, 'function boardNextAction('), sourceIndex(code, 'const boardFilterFields=')),
+    code.slice(
+      sourceIndex(code, 'function boardNextAction('),
+      sourceIndex(code, 'const boardFilterFields='),
+    ),
     sandbox,
   );
   vm.runInContext(
     code.slice(
       sourceIndex(code, 'function boardPhaseBadge('),
-      sourceIndex(code, 
+      sourceIndex(
+        code,
         "document.addEventListener('click',ev=>{const button=ev.target.closest('[data-board-layout]')",
       ),
     ),
@@ -8245,7 +8288,10 @@ test('PM readiness distinguishes a saved design from requested details that stil
     };
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(sourceIndex(code, 'function pmCanEdit('), sourceIndex(code, 'function renderPmDetail(')),
+    code.slice(
+      sourceIndex(code, 'function pmCanEdit('),
+      sourceIndex(code, 'function renderPmDetail('),
+    ),
     sandbox,
   );
   const d = {
@@ -8651,7 +8697,10 @@ test('Stage deadline calculations handle month/year boundaries and preserve unkn
 
 test('Engineering detail hierarchy uses the original Next Step, exposes prior results and collapses supplemental settings', () => {
   const code = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8'),
-    body = code.slice(sourceIndex(code, 'function renderDetail('), sourceIndex(code, 'function changeTab('));
+    body = code.slice(
+      sourceIndex(code, 'function renderDetail('),
+      sourceIndex(code, 'function changeTab('),
+    );
   const order = [
     'task-description-block',
     'task-evidence',
@@ -8803,7 +8852,10 @@ test('New-task group defaults remain overridable and Engineering may request PM 
     sandbox = {};
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(sourceIndex(code, 'function defaultNewWorkKind('), sourceIndex(code, 'function modal(')),
+    code.slice(
+      sourceIndex(code, 'function defaultNewWorkKind('),
+      sourceIndex(code, 'function modal('),
+    ),
     sandbox,
   );
   for (const [groups, kind] of [
@@ -9184,7 +9236,10 @@ test('Stage colors follow real QA return, retest, delivery and completion withou
     sandbox = {};
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(sourceIndex(code, 'function taskStageTone('), sourceIndex(code, 'const activeTaskDue=')),
+    code.slice(
+      sourceIndex(code, 'function taskStageTone('),
+      sourceIndex(code, 'const activeTaskDue='),
+    ),
     sandbox,
   );
   const tid = (
@@ -9670,7 +9725,8 @@ test('Chinese composition cannot redraw the search or trigger Enter actions befo
   vm.runInContext(
     code.slice(
       sourceIndex(code, 'function handleFilterInput('),
-      sourceIndex(code, 
+      sourceIndex(
+        code,
         "$('#panel-shade').addEventListener",
         sourceIndex(code, 'function handleFilterInput('),
       ),
@@ -9954,7 +10010,10 @@ test('Daily Engineering Activity stays collapsed, avoids the initial request and
     };
   vm.createContext(renderer);
   vm.runInContext(
-    code.slice(sourceIndex(code, 'const boardFilterFields='), sourceIndex(code, 'function boardPhaseBadge(')),
+    code.slice(
+      sourceIndex(code, 'const boardFilterFields='),
+      sourceIndex(code, 'function boardPhaseBadge('),
+    ),
     renderer,
   );
   let html = renderer.renderBoard();
@@ -10150,7 +10209,8 @@ test('Attachment areas focus without opening a picker; only Choose files opens t
     $: (id) => ({ click: () => opened.push(id) }),
   };
   vm.createContext(sandbox);
-  const start = sourceIndex(code, 
+  const start = sourceIndex(
+    code,
     "document.addEventListener('click',ev=>{const zone=ev.target.closest('.paste-target')",
   );
   vm.runInContext(
@@ -10187,7 +10247,10 @@ test('Activity labels distinguish work records from stages while preserving orig
     sandbox = { e: (x) => String(x) };
   vm.createContext(sandbox);
   vm.runInContext(
-    code.slice(sourceIndex(code, 'const activityTypeLabels='), sourceIndex(code, 'const inputSelect=')),
+    code.slice(
+      sourceIndex(code, 'const activityTypeLabels='),
+      sourceIndex(code, 'const inputSelect='),
+    ),
     sandbox,
   );
   const keys = ['Requirement', 'Development', 'PR', 'Merge', 'Deployment', 'Feedback', 'Other'];
@@ -10648,7 +10711,10 @@ test('Overdue release plans keep the original plan date and default actual relea
   vm.createContext(sandbox);
   vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(
-    code.slice(sourceIndex(code, 'let releaseList='), sourceIndex(code, 'async function saveRelease(')),
+    code.slice(
+      sourceIndex(code, 'let releaseList='),
+      sourceIndex(code, 'async function saveRelease('),
+    ),
     sandbox,
   );
   vm.runInContext(
@@ -11018,7 +11084,10 @@ test('Task identifiers appear only in details while board search still matches t
   vm.createContext(sandbox);
   vm.runInContext(code.slice(0, sourceIndex(code, 'const taskTitle=')), sandbox);
   vm.runInContext(
-    code.slice(sourceIndex(code, 'const priorityRank='), sourceIndex(code, 'function renderDaily(')),
+    code.slice(
+      sourceIndex(code, 'const priorityRank='),
+      sourceIndex(code, 'function renderDaily('),
+    ),
     sandbox,
   );
   const t = {
