@@ -45,8 +45,7 @@ function splitTemplate(node, text) {
   function appendRaw(raw) {
     for (let i = 0; i < raw.length; i++) {
       const char = raw[i];
-      const isTagStart =
-        char === '<' && /[a-zA-Z/!]/.test(raw[i + 1] ?? '') && !insideTag;
+      const isTagStart = char === '<' && /[a-zA-Z/!]/.test(raw[i + 1] ?? '') && !insideTag;
       if (isTagStart && current.length > 130 && mayBreak()) flush();
 
       current += char;
@@ -82,10 +81,12 @@ function splitTemplate(node, text) {
   if (fragments.length < 2) return null;
   const original = text.slice(node.start + 1, node.end - 1);
   assert.equal(fragments.join(''), original, 'Must preserve original template source');
-  if (fragments.some((s) => /\\+$/.test(s) && (s.match(/\\+$/)[0].length % 2))) {
+  if (fragments.some((s) => /\\+$/.test(s) && s.match(/\\+$/)[0].length % 2)) {
     return null;
   }
-  return '[\n' + fragments.map((part) => '  ' + tick + part + tick + ',').join('\n') + "\n].join('')";
+  return (
+    '[\n' + fragments.map((part) => '  ' + tick + part + tick + ',').join('\n') + "\n].join('')"
+  );
 }
 
 for (let pass = 1; pass <= 10; pass++) {
@@ -103,7 +104,17 @@ for (let pass = 1; pass <= 10; pass++) {
     }
 
     for (const [key, value] of Object.entries(node)) {
-      if (['loc', 'tokens', 'comments', 'extra', 'parent', 'leadingComments', 'trailingComments'].includes(key)) {
+      if (
+        [
+          'loc',
+          'tokens',
+          'comments',
+          'extra',
+          'parent',
+          'leadingComments',
+          'trailingComments',
+        ].includes(key)
+      ) {
         continue;
       }
       if (Array.isArray(value)) {
@@ -124,10 +135,7 @@ for (let pass = 1; pass <= 10; pass++) {
   if (!nonOverlapping.length) break;
 
   for (const item of nonOverlapping.reverse()) {
-    source =
-      source.slice(0, item.start) +
-      item.replacement +
-      source.slice(item.end);
+    source = source.slice(0, item.start) + item.replacement + source.slice(item.end);
   }
   totalChanged += nonOverlapping.length;
   console.log('Pass ' + pass + ': reflowed ' + nonOverlapping.length + ' HTML templates');
