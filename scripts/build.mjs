@@ -15,15 +15,25 @@ const signals = (await readFile('task-signals.mjs', 'utf8')).replace(
   'export function createTaskSignals',
   'function createTaskSignals',
 );
-const api = (await readFile('server.mjs', 'utf8')).replace(
-  "import {createTaskSignals} from './task-signals.mjs';",
-  signals,
-);
+const serverSource = await readFile('server.mjs', 'utf8');
+const signalsImport = /^import\s*\{\s*createTaskSignals\s*\}\s*from\s*['"]\.\/task-signals\.mjs['"];?\s*/m;
+
+if (!signalsImport.test(serverSource)) {
+  throw new Error('Expected createTaskSignals import was not found in server.mjs');
+}
+const api = serverSource.replace(signalsImport, signals + '\n');
 const index =
   api.slice(0, api.indexOf('export default ')) +
   `\nconst assets=${JSON.stringify(assets)};\nexport default {async fetch(request,env){ const p=new URL(request.url).pathname; if(p.startsWith('/api/'))return handle(request,{...env,DEV_AUTH:undefined});const asset=assets[p==='/'?'/index.html':p];return asset?new Response(asset.body,{headers:{'content-type':asset.type,'x-content-type-options':'nosniff','cache-control':'no-store'}}):new Response('Not found',{status:404});}};`;
 await writeFile('dist/server/index.js', index);
-await copyFile('.openai/hosting.json', 'dist/.openai/hosting.json');
+// Hosting configuration is supplied by supported deployment environments.
+// A repository checkout can still build and test the Worker without that file.
+try {
+  await copyFile('.openai/hosting.json', 'dist/.openai/hosting.json');
+} catch (error) {
+  if (error.code !== 'ENOENT') throw error;
+  console.warn('No .openai/hosting.json found; omitting deployment-only metadata.');
+}
 await copyFile('schema.sql', 'dist/.openai/drizzle/0000_work_tracker.sql');
 console.log('Built Worker with embedded assets and D1 schema migration');
 
