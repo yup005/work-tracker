@@ -1,0 +1,31 @@
+name: One-time audit markdown formatter
+
+on:
+  push:
+    branches:
+      - refactor/readable-html-templates
+    paths:
+      - .github/workflows/format-audit-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.1'
+      - run: npm ci --ignore-scripts
+      - run: npx prettier --write docs/REFACTOR_AUDIT.md
+      - name: Commit formatted audit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/REFACTOR_AUDIT.md
+          if ! git diff --cached --quiet; then
+            git commit -m "style: format refactor audit document"
+            git push origin HEAD:refactor/readable-html-templates
+          fi
