@@ -660,12 +660,19 @@ function taskIdentity(t) {
   return `<div class="task-identity"><button type="button" class="task-code" data-copy-task-code="${e(t.task_code)}" title="Click to copy" aria-label="Copy ${e(t.task_code)}">${e(t.task_code)}</button></div>`;
 }
 function urgentControls(d) {
-  const t = d.task,
-    u = t.urgency;
-  return [
-    `<div class="task-urgent-controls">${u ? (u.can_cancel ? '<button type="button" class="task-urgent-button is-urgent" data-urgent-action="cancel" title="Cancel Urgent" aria-label="Cancel Urgent">Urgent</button>' : '<span class="task-urgent-button is-urgent" title="Urgent reminder">Urgent</span>') : !t.archived && !['done', 'archived'].includes(d.workflow.phase) ? '<button type="button" class="task-urgent-button" data-urgent-action="mark">Mark as Urgent</button>' : ''}`,
-    `</div>`,
-  ].join('');
+  const task = d.task;
+  const urgency = task.urgency;
+  let control = '';
+
+  if (urgency) {
+    control = urgency.can_cancel
+      ? '<button type="button" class="task-urgent-button is-urgent" data-urgent-action="cancel" title="Cancel Urgent" aria-label="Cancel Urgent">Urgent</button>'
+      : '<span class="task-urgent-button is-urgent" title="Urgent reminder">Urgent</span>';
+  } else if (!task.archived && !['done', 'archived'].includes(d.workflow.phase)) {
+    control = '<button type="button" class="task-urgent-button" data-urgent-action="mark">Mark as Urgent</button>';
+  }
+
+  return `<div class="task-urgent-controls">${control}</div>`;
 }
 function urgentAttribution(d) {
   const u = d.task.urgency;
@@ -6241,23 +6248,30 @@ function pmDesignReadiness(d) {
     request,
   };
 }
-function pmReadinessList(d) {
-  const r = pmDesignReadiness(d),
-    needs = d.task.pm_stage === 'Needs Details';
+function pmReadinessItem(label, complete, missingHint) {
   return [
-    `<ul class="pm-readiness-list" aria-label="Design readiness"><li class="${r.requirement ? 'is-complete' : 'is-missing'}"><span aria-hidden="true">${r.requirement ? '✓' : '○'}`,
-    `</span><span>${ui('Requirement recorded')}</span><small>${ui(r.requirement ? 'Saved' : 'Add a requirement')}</small></li><li class="${r.design ? 'is-complete' : 'is-missing'}">`,
-    `<span aria-hidden="true">${r.design ? '✓' : '○'}</span><span>${ui('Design details recorded')}</span><small>${ui(r.design ? 'Saved' : 'Add design details')}`,
-    `</small></li>${
-      needs
-        ? [
-            `<li class="${r.detailsUpdated ? 'is-complete' : 'is-missing'}"><span aria-hidden="true">${r.detailsUpdated ? '✓' : '○'}</span><span>${ui('Requested details updated')}`,
-            `</span><small>${ui(r.detailsUpdated ? 'Saved' : 'Update the design')}</small></li>`,
-          ].join('')
-        : ''
-    }`,
-    `</ul>`,
+    `<li class="${complete ? 'is-complete' : 'is-missing'}">`,
+    `<span aria-hidden="true">${complete ? '✓' : '○'}</span>`,
+    `<span>${ui(label)}</span>`,
+    `<small>${ui(complete ? 'Saved' : missingHint)}</small>`,
+    '</li>',
   ].join('');
+}
+
+function pmReadinessList(d) {
+  const readiness = pmDesignReadiness(d);
+  const items = [
+    pmReadinessItem('Requirement recorded', readiness.requirement, 'Add a requirement'),
+    pmReadinessItem('Design details recorded', readiness.design, 'Add design details'),
+  ];
+
+  if (d.task.pm_stage === 'Needs Details') {
+    items.push(
+      pmReadinessItem('Requested details updated', readiness.detailsUpdated, 'Update the design'),
+    );
+  }
+
+  return `<ul class="pm-readiness-list" aria-label="Design readiness">${items.join('')}</ul>`;
 }
 function pmWorkflowCard(d, writable) {
   const t = d.task,
@@ -6456,13 +6470,25 @@ function renderPmDetail(d) {
   updateProfileAvatars();
   if (state.replyTo) startCommentReply(state.replyTo, false);
 }
+function pmEditorGuidance(stage) {
+  if (stage === 'Needs Details') {
+    return 'Add the requested details here. Saving keeps the task with PM until you resubmit Handoff.';
+  }
+  if (stage === 'Design Ready') {
+    return 'Changes to the requirement or design return this task to Draft. Save the changes, then review and mark the updated design ready again.';
+  }
+  if (stage === 'Draft') {
+    return 'Save your draft as you work. When the design is finished, use Mark design ready in PM workflow.';
+  }
+  return 'Updates are saved with this task. Use the current workflow action to continue.';
+}
 function editPmTask(focusDesign = false) {
   const t = state.detailData.task;
   if (!pmCanEdit(t) || t.archived) return;
   $('#modal-content').innerHTML = [
     [
       `<div class="modal-head"><h2>Edit PM task</h2><button class="close" data-close="modal">×</button>`,
-      `</div><p class="pm-editor-guidance">${ui(t.pm_stage === 'Needs Details' ? 'Add the requested details here. Saving keeps the task with PM until you resubmit Handoff.' : t.pm_stage === 'Design Ready' ? 'Changes to the requirement or design return this task to Draft. Save the changes, then review and mark the updated design ready again.' : t.pm_stage === 'Draft' ? 'Save your draft as you work. When the design is finished, use Mark design ready in PM workflow.' : 'Updates are saved with this task. Use the current workflow action to continue.')}`,
+      `</div><p class="pm-editor-guidance">${ui(pmEditorGuidance(t.pm_stage))}`,
     ].join(''),
     `</p><div class="field"><label for="pm-edit-title">Title</label><input autocomplete="off" id="pm-edit-title" maxlength="160" value="${e(t.title)}">`,
     `</div><div class="form-row"><div class="field"><label for="pm-edit-owner">PM owner</label><select id="pm-edit-owner">${workflowMemberOptions('PM', t.pm_owner || t.assignee)}`,
