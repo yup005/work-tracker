@@ -2055,23 +2055,21 @@ function renderEngineeringTaskInfo(d, writable, actions, defaultAction) {
 }
 
 function renderEngineeringTaskTimeline(activity) {
-  
   return `<details class="task-secondary"><summary>Activity timeline</summary><div class="timeline">${activity || empty('No history', 'Activities appear here.')}</div></details>`;
 }
 
 function renderEngineeringTaskDiscussion(d, writable) {
-  
   return `<details class="task-secondary" id="task-discussion"><summary>Discussion</summary>${
-      d.comments
-        .map(
-          (c) =>
-            `<div class="comment-box"><div class="head">${e(who(c.actor_email))}<span>${timeFmt(c.created_at)}</span></div>${commentReplyLink(c, d)}<div class="text">${e(c.body)}</div>${attachmentTiles(
-              d.attachments.filter((a) => a.comment_id === c.id),
-              writable,
-            )}${writable ? `<button type="button" class="account-link comment-reply-button" data-reply-comment="${e(c.id)}">Reply</button>${linkedEvidencePicker('comment-file-' + c.id, 'comment', c.id, 'Add images or files to this comment')}` : ''}</div>`,
-        )
-        .join('') || `<p class="muted-note">${ui('No comments yet.')}</p>`
-    }${writable ? `${discussionActionControls(d)}<div id="discussion-compose-anchor"><div class="reply" id="comment-composer"><div id="comment-reply-context" class="comment-reply-context" hidden></div><textarea autocomplete="off" id="comment-body" placeholder="${e(tr('e.g. Should this change apply to all users?'))}" data-ui-placeholder="e.g. Should this change apply to all users?"></textarea>${discussionRecipientPicker()}${evidencePicker('comment-files', 'comment', 'Images for this comment')}<button class="btn" id="add-comment">Post comment</button></div></div>` : ''}</details>`;
+    d.comments
+      .map(
+        (c) =>
+          `<div class="comment-box"><div class="head">${e(who(c.actor_email))}<span>${timeFmt(c.created_at)}</span></div>${commentReplyLink(c, d)}<div class="text">${e(c.body)}</div>${attachmentTiles(
+            d.attachments.filter((a) => a.comment_id === c.id),
+            writable,
+          )}${writable ? `<button type="button" class="account-link comment-reply-button" data-reply-comment="${e(c.id)}">Reply</button>${linkedEvidencePicker('comment-file-' + c.id, 'comment', c.id, 'Add images or files to this comment')}` : ''}</div>`,
+      )
+      .join('') || `<p class="muted-note">${ui('No comments yet.')}</p>`
+  }${writable ? `${discussionActionControls(d)}<div id="discussion-compose-anchor"><div class="reply" id="comment-composer"><div id="comment-reply-context" class="comment-reply-context" hidden></div><textarea autocomplete="off" id="comment-body" placeholder="${e(tr('e.g. Should this change apply to all users?'))}" data-ui-placeholder="e.g. Should this change apply to all users?"></textarea>${discussionRecipientPicker()}${evidencePicker('comment-files', 'comment', 'Images for this comment')}<button class="btn" id="add-comment">Post comment</button></div></div>` : ''}</details>`;
 }
 
 function renderEngineeringTaskManagement(d, writable) {
