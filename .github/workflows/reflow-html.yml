@@ -6,6 +6,7 @@ on:
       - refactor/readable-html-templates
     paths:
       - .github/workflows/reflow-html.yml
+      - scripts/reflow-html-templates.mjs
 
 permissions:
   contents: write
