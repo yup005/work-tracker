@@ -4,4 +4,3 @@ dist/
 coverage/
 public/favicon.svg
 **/*.sql
-.github/workflows/readability-formatter.yml
