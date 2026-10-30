@@ -44,6 +44,7 @@ jobs:
           fi
 
           grep -q 'id="app"' /tmp/work-tracker-page.html
-          curl --fail --silent --show-error http://127.0.0.1:4173/app.js | grep -q 'renderEngineeringTaskHeader'
+          curl --fail --silent --show-error http://127.0.0.1:4173/app.js -o /tmp/work-tracker-app.js
+          grep -q 'renderEngineeringTaskHeader' /tmp/work-tracker-app.js
           curl --fail --silent --show-error http://127.0.0.1:4173/api/me -o /tmp/work-tracker-me.json
           grep -q '"user"' /tmp/work-tracker-me.json
